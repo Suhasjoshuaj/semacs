@@ -1,0 +1,58 @@
+# Auto-generated and temporary files
+auto-save-list/
+auto-saves/
+backups/
+locks/
+eln-cache/
+
+# Package management (elpaca)
+elpaca/
+tree-sitter/
+
+# Compiled Elisp files
+*.elc
+*.eln
+
+# Native compilation cache
+*.eln-cache/
+
+# Shared object files (if any)
+*.so
+*.dylib
+*.dll
+
+# Session and desktop files
+.desktop
+.session*
+
+# Recent files list
+.recentf
+
+# Placeholder files
+*~
+
+# Backup files (Emacs default)
+\#*\#
+.\#*
+
+# macOS specific
+.DS_Store
+
+# Editor specific files (in case you use other editors in this dir)
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Log files
+*.log
+
+# Custom file (if you use custom-set-variables)
+custom.el
+
+# Ignore local configuration overrides
+local-*.el
+*-local.el
+
+# Compiled packages directory
