@@ -65,7 +65,7 @@
 
 (defun suhas/apply-theme ()
   "Load theme and apply fonts. Safe for daemon mode."
-  (load-theme 'modus-vivendi)
+  (load-theme 'modus-vivendi-deuteranopia)
   ;;(load-theme 'modus-vivendi-tritanopia t)
   (suhas/apply-fonts))
 
@@ -121,12 +121,14 @@
 (display-time-mode 1)
 
 ;; Hide minor modes from modeline — they clutter it.
-;; We use minions for this: one small menu instead of a wall of
-;; mode names. Install via elpaca.
-(use-package minions
-  :ensure t
-  :config
-  (minions-mode 1))
+;; Hide minor modes from modeline — built-in, no package needed
+(setq mode-line-modes
+      (mapcar (lambda (x)
+                (if (and (consp x)
+                         (eq (car x) :propertize))
+                    x
+                  x))
+              mode-line-modes))
 
 ;;; ============================================================
 ;;; SECTION 6: VISUAL QUALITY OF LIFE

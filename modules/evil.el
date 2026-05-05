@@ -17,7 +17,22 @@
   :ensure t
   :demand t
   :config
-  (evil-mode 1))
+  (evil-mode 1)
+
+  ;; Cursor shapes per state — all horizontal bars
+  (setq evil-normal-state-cursor  '(hbar . 4))
+  (setq evil-insert-state-cursor  '(hbar . 2))
+  (setq evil-visual-state-cursor  '(hbar . 4))
+  (setq evil-replace-state-cursor '(hbar . 4))
+  (setq evil-emacs-state-cursor   '(hbar . 2))
+
+  (advice-add 'evil-set-cursor :override
+              (lambda (&rest _)
+                (setq cursor-type
+                      (cond
+                       ((eq evil-state 'insert)  '(hbar . 2))
+                       ((eq evil-state 'replace) '(hbar . 4))
+                       (t                        '(hbar . 4)))))))
 
 ;;; ============================================================
 ;;; SECTION 2: GENERAL.EL — ALL LEADER BINDINGS IN ONE PLACE
