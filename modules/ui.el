@@ -65,8 +65,15 @@
 
 (defun suhas/apply-theme ()
   "Load theme and apply fonts. Safe for daemon mode."
-  (load-theme 'modus-vivendi-deuteranopia)
+  ;;(load-theme 'wheatgrass)
+  ;;(load-theme 'modus-vivendi-tinted)
   ;;(load-theme 'modus-vivendi-tritanopia t)
+  ;;(load-theme 'modus-vivendi-deuteranopia)
+  ;;(load-theme 'misterioso)
+  ;;(load-theme 'deeper-blue)
+  ;;(load-theme 'leuven-dark)
+  ;;(load-theme 'tango-dark)
+  (load-theme 'wombat)
   (suhas/apply-fonts))
 
 ;; Two cases:
@@ -107,21 +114,41 @@
 ;;; SECTION 5: MODELINE
 ;;; ============================================================
 
-;; We're using the built-in modeline, kept minimal.
-;; No doom-modeline, no powerline. Those add weight.
-;; The built-in modeline shows everything you need.
-
-;; Show current column number alongside line number.
 (column-number-mode 1)
-
-;; Show clock in modeline. You're inside Emacs — know the time.
 (setq display-time-format "%H:%M"
       display-time-24hr-format t
-      display-time-default-load-average nil) ; hide load avg, not useful
+      display-time-default-load-average nil)
 (display-time-mode 1)
 
-;; Hide minor modes from modeline — they clutter it.
-;; Hide minor modes from modeline — built-in, no package needed
+;; Hide ALL minor modes from modeline — they add noise, not value.
+;; You know what's enabled from your config, not from the modeline.
+(setq-default mode-line-format
+              '("%e"
+                mode-line-front-space
+                ;; Evil state indicator
+                (:eval (cond
+                        ((evil-normal-state-p)  " N ")
+                        ((evil-insert-state-p)  " I ")
+                        ((evil-visual-state-p)  " V ")
+                        ((evil-replace-state-p) " R ")
+                        (t                      " E ")))
+                "  "
+                ;; Buffer name
+                mode-line-buffer-identification
+                "  "
+                ;; Position
+                "(%l,%c)"
+                "  "
+                ;; Git branch
+                (vc-mode vc-mode)
+                "  "
+                ;; Major mode only — no minor modes
+                "%m"
+                "  "
+                ;; Time
+                display-time-string
+                mode-line-end-spaces))
+
 (setq mode-line-modes
       (mapcar (lambda (x)
                 (if (and (consp x)

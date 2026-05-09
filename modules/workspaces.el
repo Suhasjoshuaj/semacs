@@ -22,17 +22,13 @@
      tab-bar-separator))
 
   :config
-  (tab-bar-mode 1)
+  (tab-bar-mode 1))
 
-  ;; Jump to tab by number with SPC TAB 1-9
-  ;; These are defined here as they're tab-bar specific
-  (dotimes (i 9)
-    (let ((n (1+ i)))
-      (global-set-key
-       (kbd (format "M-%d" n))
-       (lambda ()
-         (interactive)
-         (tab-bar-select-tab n))))))
+(setq tab-bar-format '(tab-bar-format-tabs))
+(setq tab-bar-tab-name-truncated-max 15)  ; max chars in tab name
+(setq tab-bar-tab-name-function #'tab-bar-tab-name-truncated)
+(setq tab-bar-tab-hints nil) ; Optional: show numbers to save space
+(setq tab-bar-separator " ")  ; minimal separator between tabs
 
 ;;; ============================================================
 ;;; SECTION 2: PROJECT.EL — PROJECT AWARENESS

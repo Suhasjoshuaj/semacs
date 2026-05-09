@@ -19,7 +19,8 @@
   :config
   (evil-mode 1)
 
-  ;; Cursor shapes per state — all horizontal bars
+  (defvar suhas/cursor-color "#ff6b6b")
+
   (setq evil-normal-state-cursor  '(hbar . 4))
   (setq evil-insert-state-cursor  '(hbar . 2))
   (setq evil-visual-state-cursor  '(hbar . 4))
@@ -28,6 +29,7 @@
 
   (advice-add 'evil-set-cursor :override
               (lambda (&rest _)
+                (set-cursor-color suhas/cursor-color)
                 (setq cursor-type
                       (cond
                        ((eq evil-state 'insert)  '(hbar . 2))
@@ -61,11 +63,10 @@
 
   ;; ── Buffers ────────────────────────────────────────────────
   (suhas/leader
-    "b b" #'switch-to-buffer
-    "b k" #'kill-this-buffer
-    "b i" #'ibuffer
-    "b n" #'next-buffer
-    "b p" #'previous-buffer)
+    "SPC" #'consult-buffer      ; SPC SPC — instant fuzzy buffer switch
+    "k"   #'kill-current-buffer ; SPC k — kill current
+    "["   #'previous-buffer     ; SPC [ — cycle left
+    "]"   #'next-buffer)        ; SPC ] — cycle right
 
   ;; ── Windows ────────────────────────────────────────────────
   (suhas/leader
@@ -132,12 +133,12 @@
 
   ;; ── Workspaces ─────────────────────────────────────────────
   (suhas/leader
-    "TAB n"   #'tab-bar-new-tab
-    "TAB k"   #'tab-bar-close-tab
-    "TAB r"   #'tab-bar-rename-tab
-    "TAB TAB" #'tab-bar-switch-to-recent-tab
-    "TAB l"   #'tab-bar-switch-to-next-tab
-    "TAB h"   #'tab-bar-switch-to-prev-tab)
+    "a n" #'tab-bar-new-tab
+    "a k" #'tab-bar-close-tab
+    "a r" #'tab-bar-rename-tab
+    "a a" #'tab-bar-switch-to-recent-tab  
+    "a l" #'tab-bar-switch-to-next-tab
+    "a h" #'tab-bar-switch-to-prev-tab)
 
   ;; ── Projects ───────────────────────────────────────────────
   (suhas/leader
@@ -200,9 +201,29 @@
   (define-key vertico-map (kbd "DEL")  #'vertico-directory-delete-char)
   (define-key vertico-map (kbd "C-DEL") #'vertico-directory-up))
 
-;; circular buffer navigation
-(with-eval-after-load 'evil
-  (define-key evil-normal-state-map (kbd "] b") #'next-buffer)
-  (define-key evil-normal-state-map (kbd "[ b") #'previous-buffer))
+;; Global buffer navigation — works in any state, any mode
+(global-set-key (kbd "C-,") #'previous-buffer)
+(global-set-key (kbd "C-;") #'next-buffer)
+(global-set-key (kbd "C-'") #'mode-line-other-buffer)
+
+;;Workspace switching with M-1..
+(defun suhas/switch-to-tab (n)
+  "Switch to tab number N by position."
+  (let* ((tabs (tab-bar-tabs))
+         (tab (nth (1- n) tabs)))
+    (when tab
+      (tab-bar-select-tab-by-name
+       (alist-get 'name tab)))))
+
+(global-set-key (kbd "M-1") (lambda () (interactive) (suhas/switch-to-tab 1)))
+(global-set-key (kbd "M-2") (lambda () (interactive) (suhas/switch-to-tab 2)))
+(global-set-key (kbd "M-3") (lambda () (interactive) (suhas/switch-to-tab 3)))
+(global-set-key (kbd "M-4") (lambda () (interactive) (suhas/switch-to-tab 4)))
+(global-set-key (kbd "M-5") (lambda () (interactive) (suhas/switch-to-tab 5)))
+(global-set-key (kbd "M-6") (lambda () (interactive) (suhas/switch-to-tab 6)))
+(global-set-key (kbd "M-7") (lambda () (interactive) (suhas/switch-to-tab 7)))
+(global-set-key (kbd "M-8") (lambda () (interactive) (suhas/switch-to-tab 8)))
+(global-set-key (kbd "M-9") (lambda () (interactive) (suhas/switch-to-tab 9)))
+
 
 ;;; evil.el ends here
