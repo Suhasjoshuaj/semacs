@@ -69,11 +69,12 @@
   ;;(load-theme 'modus-vivendi-tinted)
   ;;(load-theme 'modus-vivendi-tritanopia t)
   ;;(load-theme 'modus-vivendi-deuteranopia)
-  ;;(load-theme 'misterioso)
+  (load-theme 'misterioso)
   ;;(load-theme 'deeper-blue)
   ;;(load-theme 'leuven-dark)
   ;;(load-theme 'tango-dark)
-  (load-theme 'wombat)
+  ;;(load-theme 'wombat)
+  ;;(load-theme 'gruber-darker)
   (suhas/apply-fonts))
 
 ;; Two cases:

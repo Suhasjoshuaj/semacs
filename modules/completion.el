@@ -89,7 +89,7 @@
 
   ;; Use consult for buffer switching — replaces switch-to-buffer.
   ;; You get a live preview of each buffer as you select it.
-  (global-set-key [remap switch-to-buffer] #'consult-buffer)
+  ;;(global-set-key [remap switch-to-buffer] #'consult-buffer)
   (global-set-key [remap goto-line]        #'consult-goto-line)
   (global-set-key [remap imenu]            #'consult-imenu)
 
@@ -104,39 +104,39 @@
 ;;; SECTION 5: CORFU — IN-BUFFER CODE COMPLETION POPUP
 ;;; ============================================================
 
-  ;; Vertico handles minibuffer completion (commands, files, buffers).
-  ;; Corfu handles in-buffer completion (code, words, LSP suggestions).
-  ;; They're complementary — you need both.
-  ;;
-  ;; When eglot sends completion candidates from a language server,
-  ;; corfu shows them in a small popup next to your cursor.
+;; Vertico handles minibuffer completion (commands, files, buffers).
+;; Corfu handles in-buffer completion (code, words, LSP suggestions).
+;; They're complementary — you need both.
+;;
+;; When eglot sends completion candidates from a language server,
+;; corfu shows them in a small popup next to your cursor.
 
-  (use-package corfu
-    :ensure t
-    :custom
-    (corfu-auto t)              ; Show popup automatically while typing
-    (corfu-auto-delay 0.2)      ; Wait 200ms before showing popup
-    (corfu-auto-prefix 2)       ; Start after typing 2 characters
-    (corfu-cycle t)             ; Wrap around candidate list
-    (corfu-quit-no-match t)     ; Hide popup if no matches
-    :init
-    (global-corfu-mode 1))
+(use-package corfu
+  :ensure t
+  :custom
+  (corfu-auto t)              ; Show popup automatically while typing
+  (corfu-auto-delay 0.2)      ; Wait 200ms before showing popup
+  (corfu-auto-prefix 2)       ; Start after typing 2 characters
+  (corfu-cycle t)             ; Wrap around candidate list
+  (corfu-quit-no-match t)     ; Hide popup if no matches
+  :init
+  (global-corfu-mode 1))
 
-  ;; corfu-terminal: makes corfu work in terminal Emacs too.
-  ;; Without this, the popup renders as garbage in TTY mode.
-  (use-package corfu-terminal
-    :ensure t
-    :after corfu
-    :config
-    (unless (display-graphic-p)
-      (corfu-terminal-mode 1)))
+;; corfu-terminal: makes corfu work in terminal Emacs too.
+;; Without this, the popup renders as garbage in TTY mode.
+(use-package corfu-terminal
+  :ensure t
+  :after corfu
+  :config
+  (unless (display-graphic-p)
+    (corfu-terminal-mode 1)))
 
-  ;; cape: adds extra completion sources to corfu.
-  ;; File paths, dictionary words, and more — on top of LSP.
-  (use-package cape
-    :ensure t
-    :config
-    (add-to-list 'completion-at-point-functions #'cape-file)
-    (add-to-list 'completion-at-point-functions #'cape-dabbrev))
+;; cape: adds extra completion sources to corfu.
+;; File paths, dictionary words, and more — on top of LSP.
+(use-package cape
+  :ensure t
+  :config
+  (add-to-list 'completion-at-point-functions #'cape-file)
+  (add-to-list 'completion-at-point-functions #'cape-dabbrev))
 
-;;; completion.el ends here
+;;; completion.el ends here (ido-mode 1)

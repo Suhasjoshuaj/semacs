@@ -21,7 +21,7 @@
                                       ; default copy/move target is the other one
   (dired-recursive-copies 'always)    ; Copy directories without asking
   (dired-recursive-deletes 'always)   ; Delete directories without asking
-  (delete-by-moving-to-trash t)       ; Send to trash instead of permanent delete
+  (delete-by-moving-to-trash nil)       ; Send to trash instead of permanent delete
   (dired-hide-details-mode t))        ; Hide permissions/dates by default, toggle with (
 
 ;; Auto-revert dired when files change on disk.

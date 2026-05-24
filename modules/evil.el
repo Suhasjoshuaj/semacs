@@ -11,8 +11,8 @@
 (setq evil-split-window-below t)
 (setq evil-vsplit-window-right t)
 (setq evil-respect-visual-line-mode t)
-;;(global-set-key (kbd "C-x C-b") #'ibuffer)
 
+;; Evil init
 (use-package evil
   :ensure t
   :demand t
@@ -66,7 +66,8 @@
     "SPC" #'consult-buffer      ; SPC SPC — instant fuzzy buffer switch
     "k"   #'kill-current-buffer ; SPC k — kill current
     "["   #'previous-buffer     ; SPC [ — cycle left
-    "]"   #'next-buffer)        ; SPC ] — cycle right
+    "]"   #'next-buffer        ; SPC ] — cycle right"b i" #'ibuffer
+    "b i" #'ibuffer)
 
   ;; ── Windows ────────────────────────────────────────────────
   (suhas/leader
@@ -136,7 +137,7 @@
     "a n" #'tab-bar-new-tab
     "a k" #'tab-bar-close-tab
     "a r" #'tab-bar-rename-tab
-    "a a" #'tab-bar-switch-to-recent-tab  
+    "a a" #'tab-bar-switch-to-recent-tab
     "a l" #'tab-bar-switch-to-next-tab
     "a h" #'tab-bar-switch-to-prev-tab)
 
@@ -173,22 +174,23 @@
 ;;; SECTION 5: NAVIGATION IN SPECIAL BUFFERS
 ;;; ============================================================
 
-(with-eval-after-load 'dired
-  (define-key dired-mode-map (kbd "j")   #'dired-next-line)
-  (define-key dired-mode-map (kbd "k")   #'dired-previous-line)
-  (define-key dired-mode-map (kbd "h")   #'dired-up-directory)
-  (define-key dired-mode-map (kbd "l")   #'dired-find-file)
-  (define-key dired-mode-map (kbd "q")   #'quit-window)
-  (define-key dired-mode-map (kbd "G")   #'end-of-buffer)
-  ;; Remove the g g binding — it conflicts with vertico
-  ;; Use < instead for beginning of buffer in dired
-  (define-key dired-mode-map (kbd "<")   #'beginning-of-buffer))
-
 (with-eval-after-load 'ibuffer
-  (define-key ibuffer-mode-map (kbd "j") #'ibuffer-forward-line)
-  (define-key ibuffer-mode-map (kbd "k") #'ibuffer-backward-line)
-  (define-key ibuffer-mode-map (kbd "G") #'end-of-buffer)
-  (define-key ibuffer-mode-map (kbd "g g") #'beginning-of-buffer))
+  (define-key ibuffer-mode-map (kbd "g") nil)  ; unbind native g
+  (define-key ibuffer-mode-map (kbd "j")   #'ibuffer-forward-line)
+  (define-key ibuffer-mode-map (kbd "k")   #'ibuffer-backward-line)
+  (define-key ibuffer-mode-map (kbd "RET") #'ibuffer-visit-buffer)
+  (define-key ibuffer-mode-map (kbd "G")   #'end-of-buffer)
+  (define-key ibuffer-mode-map (kbd "<")   #'beginning-of-buffer))
+
+(with-eval-after-load 'dired
+  (define-key dired-mode-map (kbd "g") nil)    ; unbind native g
+  (define-key dired-mode-map (kbd "j") #'dired-next-line)
+  (define-key dired-mode-map (kbd "k") #'dired-previous-line)
+  (define-key dired-mode-map (kbd "h") #'dired-up-directory)
+  (define-key dired-mode-map (kbd "l") #'dired-find-file)
+  (define-key dired-mode-map (kbd "q") #'quit-window)
+  (define-key dired-mode-map (kbd "G") #'end-of-buffer)
+  (define-key dired-mode-map (kbd "<") #'beginning-of-buffer))
 
 ;;; ============================================================
 ;;; SECTION 6: VERTICO NAVIGATION
@@ -225,5 +227,6 @@
 (global-set-key (kbd "M-8") (lambda () (interactive) (suhas/switch-to-tab 8)))
 (global-set-key (kbd "M-9") (lambda () (interactive) (suhas/switch-to-tab 9)))
 
-
 ;;; evil.el ends here
+
+(global-set-key (kbd "C-x C-b") #'ibuffer)
