@@ -1,89 +1,51 @@
-;;; lsp.el --- Eglot (built-in LSP client) + language servers
-;;; Eglot ships with Emacs 29+. No install needed.
-;;; It connects your editor to language servers that provide:
-;;; completions, diagnostics, go-to-definition, hover docs, rename.
-
-;;; ============================================================
-;;; SECTION 1: EGLOT CORE
-;;; ============================================================
+;;; lsp.el --- Eglot language server client
 
 (use-package eglot
-  :ensure nil                         ; Built-in, no install
+  :ensure nil
   :commands eglot eglot-ensure
   :custom
-  (eglot-autoshutdown t)              ; Kill server when last buffer closes
-  (eglot-confirm-server-edits nil)    ; Don't ask before applying server edits
-  (eglot-extend-to-xref t)           ; Use eglot for xref (go-to-definition)
-  (eglot-ignored-server-capabilities ; Disable features that add noise
-   '(:documentHighlightProvider      ; Highlights all occurrences — distracting
-     :inlayHintProvider))            ; Inline type hints — clutters code
-
+  (eglot-autoshutdown t)
+  (eglot-confirm-server-edits nil)
+  (eglot-ignored-server-capabilities
+   '(:documentHighlightProvider
+     :inlayHintProvider))
   :config
-  ;; Performance: don't log every LSP event.
-  ;; LSP is extremely chatty. Logging it all tanks performance.
-  (setq eglot-events-buffer-size 0)
-
-  ;; Use corfu for LSP completions (set in completion.el).
-  ;; This tells eglot to use completion-at-point which corfu picks up.
-  (setq completion-category-defaults nil))
-
-;;; ============================================================
-;;; SECTION 2: LANGUAGE SERVER ASSIGNMENTS
-;;; ============================================================
-
-;; This table maps major modes to their language servers.
-;; The server must be installed on your system (bootstrap.sh does this).
-;; Eglot reads this table when you open a file.
-
+  (setq eglot-events-buffer-size 0))
 
 (with-eval-after-load 'eglot
   (add-to-list 'eglot-server-programs
                '(python-mode . ("pyright-langserver" "--stdio")))
   (add-to-list 'eglot-server-programs
-               '((js-mode typescript-ts-mode tsx-ts-mode)
+               '((js-mode typescript-ts-mode tsx-ts-mode jsx-ts-mode)
                  . ("typescript-language-server" "--stdio")))
   (add-to-list 'eglot-server-programs
-               '(java-mode . ("jdtls")))
+               '(rust-ts-mode . ("rust-analyzer")))
   (add-to-list 'eglot-server-programs
-               '((c-mode c++-mode) . ("clangd"))))
-
-;;; ============================================================
-;;; SECTION 3: AUTO-START EGLOT PER LANGUAGE
-;;; ============================================================
-
-;; eglot-ensure starts the language server when you open a file.
-;; We attach it to prog-mode hooks so it covers all languages.
+               '((c-mode c++-mode c-ts-mode c++-ts-mode)
+                 . ("clangd" "--background-index")))
+  (add-to-list 'eglot-server-programs
+               '(java-mode . ("jdtls"))))
 
 (dolist (hook '(python-mode-hook
                 js-mode-hook
-                java-mode-hook
+                typescript-ts-mode-hook
+                tsx-ts-mode-hook
+                jsx-ts-mode-hook
+                rust-ts-mode-hook
+                rust-mode-hook
                 c-mode-hook
-                c++-mode-hook))
+                c++-mode-hook
+                c-ts-mode-hook
+                c++-ts-mode-hook
+                java-mode-hook
+                java-ts-mode-hook))
   (add-hook hook #'eglot-ensure))
 
-;;; ============================================================
-;;; SECTION 4: DIAGNOSTICS — FLYMAKE
-;;; ============================================================
-
-;; Eglot uses flymake (built-in) for showing errors and warnings.
-;; Red/yellow underlines in your code come from here.
-;; Errors appear in the minibuffer when your cursor is on them.
-
 (use-package flymake
-  :ensure nil                         ; Built-in
+  :ensure nil
   :hook (prog-mode . flymake-mode)
   :custom
   (flymake-fringe-indicator-position 'right-fringe)
-  (flymake-no-changes-timeout 0.5))   ; Check 500ms after you stop typing
-
-;; Navigate between errors with ] e and [ e
-
-;;; ============================================================
-;;; SECTION 5: TREESITTER
-;;; ============================================================
-
-;; Grammars are pre-built and installed manually via bootstrap.sh
-;; See: https://github.com/casouri/tree-sitter-module/releases
-(setq treesit-font-lock-level 4)
+  (flymake-no-changes-timeout 0.5))
 
 ;;; lsp.el ends here

@@ -1,75 +1,120 @@
-;;; evil.el --- Vim layer, surgical and clean
+;;; evil.el --- Vim layer, toggleable, with leader key bindings
 
 ;;; ============================================================
-;;; SECTION 1: EVIL CORE
+;;; EMACS/VIM MODE TOGGLE
 ;;; ============================================================
 
+;; Global toggle to switch between Vim and Emacs keybindings.
+;; When disabled, Emacs defaults come back. When enabled, Vim layer activates.
+(defvar suhas/vim-mode-enabled t
+  "Whether to use Vim keybindings (evil-mode). Toggle with suhas/toggle-vim-mode.")
+
+(defun suhas/toggle-vim-mode ()
+  "Toggle evil mode globally."
+  (interactive)
+  (setq suhas/vim-mode-enabled (not suhas/vim-mode-enabled))
+  (if suhas/vim-mode-enabled
+      (progn
+        (evil-mode 1)
+        (message "🔴 Vim mode ENABLED"))
+    (progn
+      (evil-mode -1)
+      (message "🟢 Emacs mode ENABLED"))))
+
+;; You can also enable vim bindings for just the current buffer,
+;; even if vim mode is globally disabled.
+(defun suhas/evil-local-mode-toggle ()
+  "Toggle evil mode for the current buffer only."
+  (interactive)
+  (evil-local-mode 'toggle)
+  (if evil-local-mode
+      (message "Buffer: Vim mode")
+    (message "Buffer: Emacs mode")))
+
+;;; ============================================================
+;;; EVIL CONFIGURATION
+;;; ============================================================
+
+;; Configure Evil BEFORE loading it. These variables control its behavior.
+
+;; Don't bind to every key globally. We'll use general.el for leader bindings.
 (setq evil-want-keybinding nil)
+
+;; Enable Evil's general integration (for dired, help-mode, etc).
 (setq evil-want-integration t)
+
+;; C-u scrolls up (Vim convention), not universal-argument.
 (setq evil-want-C-u-scroll t)
+
+;; After undo, redo with C-r (standard Vim).
 (setq evil-undo-system 'undo-redo)
+
+;; When you split a window, new window appears below (not above).
 (setq evil-split-window-below t)
+;; When you vsplit, new window appears to the right (not left).
 (setq evil-vsplit-window-right t)
+
+;; Treat wrapped lines as multiple lines (for j/k navigation).
 (setq evil-respect-visual-line-mode t)
 
-;; Evil init
+;;; ============================================================
+;;; EVIL SETUP
+;;; ============================================================
+
 (use-package evil
-  :ensure t
-  :demand t
-  :config
-  (evil-mode 1)
-
-  (defvar suhas/cursor-color "#ff6b6a")
-
-  (setq evil-normal-state-cursor  '(hbar . 4))
-  (setq evil-insert-state-cursor  '(hbar . 2))
-  (setq evil-visual-state-cursor  '(hbar . 4))
-  (setq evil-replace-state-cursor '(hbar . 4))
-  (setq evil-emacs-state-cursor   '(hbar . 2))
-
-  (advice-add 'evil-set-cursor :override
-              (lambda (&rest _)
-                (set-cursor-color suhas/cursor-color)
-                (setq cursor-type
-                      (cond
-                       ((eq evil-state 'insert)  '(hbar . 2))
-                       ((eq evil-state 'replace) '(hbar . 4))
-                       (t                        '(hbar . 4)))))))
+  :init
+  ;; Only load evil if vim-mode is enabled.
+  ;; This lets users start without Vim if they want.
+  (when suhas/vim-mode-enabled
+    (evil-mode 1))
+  :custom
+  ;; Cursor style: horizontal bar in normal mode, thinner in insert mode.
+  (evil-normal-state-cursor  '(hbar . 4))
+  (evil-insert-state-cursor  '(hbar . 2))
+  (evil-visual-state-cursor  '(hbar . 4))
+  (evil-replace-state-cursor '(hbar . 4))
+  (evil-emacs-state-cursor   '(hbar . 2)))
 
 ;;; ============================================================
-;;; SECTION 2: GENERAL.EL — ALL LEADER BINDINGS IN ONE PLACE
+;;; ESCAPE KEY
 ;;; ============================================================
 
-;; general.el is loaded with :demand t so it's available immediately.
-;; ALL suhas/leader calls across every module live here.
-;; Never call suhas/leader from any other module file.
+;; ESC quits everything (minibuffer, visual mode, etc).
+;; This is universal and expected.
+(global-set-key (kbd "<escape>") #'keyboard-escape-quit)
+
+;;; ============================================================
+;;; GENERAL.EL — Leader key setup
+;;; ============================================================
+
+;; general.el lets us define leader-key bindings in one place.
+;; SPC is our leader key (Vim convention).
+;; All SPC-prefixed commands are defined here.
 
 (use-package general
-  :ensure t
-  :demand t
+  :after evil
   :config
 
+  ;; Define the leader key. Only works in normal/visual state.
   (general-create-definer suhas/leader
     :states '(normal visual)
     :keymaps 'override
     :prefix "SPC")
 
-  ;; ── Files ──────────────────────────────────────────────────
+  ;; ── File operations ────────────────────────────────────────
   (suhas/leader
     "f f" #'find-file
     "f s" #'save-buffer
-    "f r" #'recentf-open-files
+    "f r" #'consult-recent-file
     "f d" #'dired)
 
-  ;; ── Buffers ────────────────────────────────────────────────
+  ;; ── Buffer operations ──────────────────────────────────────
   (suhas/leader
-    "SPC" #'consult-buffer      ; SPC SPC — instant fuzzy buffer switch
-    "k"   #'kill-current-buffer ; SPC k — kill current
-    "["   #'previous-buffer     ; SPC [ — cycle left
-    "]"   #'next-buffer        ; SPC ] — cycle right"b i" #'ibuffer
-    "b i" #'ibuffer)
+    "SPC" #'consult-buffer      ; SPC SPC = quick buffer switch
+    "k"   #'kill-current-buffer ; SPC k = kill buffer
+    "b i" #'ibuffer)            ; SPC b i = buffer list
 
-  ;; ── Windows ────────────────────────────────────────────────
+  ;; ── Window operations ──────────────────────────────────────
   (suhas/leader
     "w v" #'evil-window-vsplit
     "w s" #'evil-window-split
@@ -80,142 +125,55 @@
     "w q" #'evil-window-delete
     "w o" #'delete-other-windows)
 
-  ;; ── Config ─────────────────────────────────────────────────
+  ;; ── Search operations ──────────────────────────────────────
+  (suhas/leader
+    "s s" #'consult-line       ; Search in current buffer
+    "s g" #'consult-grep       ; Grep project
+    "s f" #'consult-find)      ; Find file by name
+
+  ;; ── Config management ──────────────────────────────────────
   (suhas/leader
     "c e" #'suhas/open-config
-    "c r" #'suhas/reload-config)
-
-  ;; ── Search ─────────────────────────────────────────────────
-  (suhas/leader
-    "s s" #'consult-line
-    "s g" #'consult-grep
-    "s f" #'consult-find)
+    "c r" #'suhas/reload-config
+    "c v" #'suhas/toggle-vim-mode)  ; Toggle vim mode
 
   ;; ── Terminal ───────────────────────────────────────────────
   (suhas/leader
-    "t t" #'suhas/open-terminal
-    "t n" #'suhas/open-named-terminal
-    "t k" #'suhas/close-terminal)
-
-  ;; ── Git ────────────────────────────────────────────────────
-  (suhas/leader
-    "g g" #'magit-status
-    "g b" #'magit-branch
-    "g l" #'magit-log-current
-    "g d" #'magit-diff-buffer-file
-    "g r" #'magit-rebase
-    "g s" #'git-gutter:stage-hunk
-    "g n" #'git-gutter:next-hunk
-    "g p" #'git-gutter:previous-hunk)
+    "t t" #'suhas/open-terminal)  ; Open terminal (defined in terminal.el)
 
   ;; ── LSP / Errors ───────────────────────────────────────────
   (suhas/leader
     "e n" #'flymake-goto-next-error
     "e p" #'flymake-goto-prev-error
     "e l" #'flymake-show-buffer-diagnostics
-    "e s" #'eglot-reconnect
     "e a" #'eglot-code-actions
     "e r" #'eglot-rename
     "e f" #'eglot-format-buffer)
 
-  ;; ── Format ─────────────────────────────────────────────────
+  ;; ── Compile ────────────────────────────────────────────────
   (suhas/leader
-    "= =" #'apheleia-format-buffer)
+    "m c" #'compile)  ; SPC m c = compile
 
-  ;; ── Org ────────────────────────────────────────────────────
+  ;; ── Theme ──────────────────────────────────────────────────
   (suhas/leader
-    "o c" #'suhas/open-config
-    "o n" #'org-capture
-    "o a" #'org-agenda
-    "o e" #'org-export-dispatch
-    "o t" #'org-babel-tangle
-    "o x" #'org-babel-execute-src-block
-    "o X" #'org-babel-execute-buffer)
-
-  ;; ── Workspaces ─────────────────────────────────────────────
-  (suhas/leader
-    "a n" #'tab-bar-new-tab
-    "a k" #'tab-bar-close-tab
-    "a r" #'tab-bar-rename-tab
-    "a a" #'tab-bar-switch-to-recent-tab
-    "a l" #'tab-bar-switch-to-next-tab
-    "a h" #'tab-bar-switch-to-prev-tab)
-
-  ;; ── Projects ───────────────────────────────────────────────
-  (suhas/leader
-    "p p" #'suhas/project-open-in-tab
-    "p f" #'project-find-file
-    "p g" #'project-find-regexp
-    "p k" #'project-kill-buffers
-    "p b" #'project-switch-to-buffer
-    "p d" #'project-dired))
+    "u t" #'suhas/theme-menu))  ; SPC u t = theme menu
 
 ;;; ============================================================
-;;; SECTION 3: ESCAPE
+;;; GLOBAL KEYBINDINGS (work in any mode, any state)
 ;;; ============================================================
 
-(global-set-key (kbd "<escape>") #'keyboard-escape-quit)
+;; Rotate through buffers (smart buffer navigation).
+;; These are defined globally so they work everywhere.
+(global-set-key (kbd "C-,") #'suhas/prev-buffer)
+(global-set-key (kbd "C-;") #'suhas/next-buffer)
 
-;;; ============================================================
-;;; SECTION 4: SPECIAL BUFFER STATES
-;;; ============================================================
-
-(with-eval-after-load 'evil
-  (evil-set-initial-state 'dired-mode 'emacs)
-  (evil-set-initial-state 'ibuffer-mode 'emacs)
-  (evil-set-initial-state 'magit-mode 'emacs)
-  (evil-set-initial-state 'magit-status-mode 'emacs)
-  (evil-set-initial-state 'magit-log-mode 'emacs)
-  (evil-set-initial-state 'magit-diff-mode 'emacs)
-  (evil-set-initial-state 'help-mode 'emacs)
-  (evil-set-initial-state 'info-mode 'emacs))
-
-;;; ============================================================
-;;; SECTION 5: NAVIGATION IN SPECIAL BUFFERS
-;;; ============================================================
-
-(with-eval-after-load 'ibuffer
-  (define-key ibuffer-mode-map (kbd "g") nil)  ; unbind native g
-  (define-key ibuffer-mode-map (kbd "j")   #'ibuffer-forward-line)
-  (define-key ibuffer-mode-map (kbd "k")   #'ibuffer-backward-line)
-  (define-key ibuffer-mode-map (kbd "RET") #'ibuffer-visit-buffer)
-  (define-key ibuffer-mode-map (kbd "G")   #'end-of-buffer)
-  (define-key ibuffer-mode-map (kbd "<")   #'beginning-of-buffer))
-
-(with-eval-after-load 'dired
-  (define-key dired-mode-map (kbd "g") nil)    ; unbind native g
-  (define-key dired-mode-map (kbd "j") #'dired-next-line)
-  (define-key dired-mode-map (kbd "k") #'dired-previous-line)
-  (define-key dired-mode-map (kbd "h") #'dired-up-directory)
-  (define-key dired-mode-map (kbd "l") #'dired-find-file)
-  (define-key dired-mode-map (kbd "q") #'quit-window)
-  (define-key dired-mode-map (kbd "G") #'end-of-buffer)
-  (define-key dired-mode-map (kbd "<") #'beginning-of-buffer))
-
-;;; ============================================================
-;;; SECTION 6: VERTICO NAVIGATION
-;;; ============================================================
-
-(with-eval-after-load 'vertico
-  (define-key vertico-map (kbd "C-j")  #'vertico-next)
-  (define-key vertico-map (kbd "C-k")  #'vertico-previous)
-  (define-key vertico-map (kbd "RET")  #'vertico-directory-enter)
-  (define-key vertico-map (kbd "DEL")  #'vertico-directory-delete-char)
-  (define-key vertico-map (kbd "C-DEL") #'vertico-directory-up))
-
-;; Global buffer navigation — works in any state, any mode
-(global-set-key (kbd "C-,") #'previous-buffer)
-(global-set-key (kbd "C-;") #'next-buffer)
-(global-set-key (kbd "C-'") #'mode-line-other-buffer)
-
-;;Workspace switching with M-1..
+;; Workspace switching with Meta+1..9
 (defun suhas/switch-to-tab (n)
-  "Switch to tab number N by position."
+  "Switch to workspace tab N."
   (let* ((tabs (tab-bar-tabs))
          (tab (nth (1- n) tabs)))
     (when tab
-      (tab-bar-select-tab-by-name
-       (alist-get 'name tab)))))
+      (tab-bar-select-tab-by-name (alist-get 'name tab)))))
 
 (global-set-key (kbd "M-1") (lambda () (interactive) (suhas/switch-to-tab 1)))
 (global-set-key (kbd "M-2") (lambda () (interactive) (suhas/switch-to-tab 2)))
@@ -227,6 +185,29 @@
 (global-set-key (kbd "M-8") (lambda () (interactive) (suhas/switch-to-tab 8)))
 (global-set-key (kbd "M-9") (lambda () (interactive) (suhas/switch-to-tab 9)))
 
-;;; evil.el ends here
+;;; ============================================================
+;;; SPECIAL BUFFER STATES
+;;; ============================================================
 
-(global-set-key (kbd "C-x C-b") #'ibuffer)
+;; These modes have their own keybindings. We don't force Vim on them.
+;; They use Emacs defaults because Vim doesn't make sense there.
+(with-eval-after-load 'evil
+  (evil-set-initial-state 'dired-mode 'emacs)
+  (evil-set-initial-state 'ibuffer-mode 'emacs)
+  (evil-set-initial-state 'magit-mode 'emacs)
+  (evil-set-initial-state 'magit-status-mode 'emacs)
+  (evil-set-initial-state 'magit-log-mode 'emacs)
+  (evil-set-initial-state 'help-mode 'emacs)
+  (evil-set-initial-state 'info-mode 'emacs))
+
+;;; ============================================================
+;;; VERTICO NAVIGATION ENHANCEMENTS
+;;; ============================================================
+
+;; When using vertico (minibuffer completion), add vim-like navigation.
+;; C-j/C-k to go down/up through candidates.
+(with-eval-after-load 'vertico
+  (define-key vertico-map (kbd "C-j") #'vertico-next)
+  (define-key vertico-map (kbd "C-k") #'vertico-previous))
+
+;;; evil.el ends here

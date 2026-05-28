@@ -1,44 +1,44 @@
-;;; ui.el --- Theme, fonts, modeline, visual defaults
-;;; Everything you see. Nothing you execute.
+;;; ui.el --- Theme, fonts, modeline, visual polish
 
 ;;; ============================================================
-;;; SECTION 1: STRIP THE CHROME
+;;; LINE NUMBERS — Relative for Vim users, absolute elsewhere
 ;;; ============================================================
 
-;; These are GUI elements Emacs shows by default.
-;; We disable them before the frame renders to avoid a flash.
-;; -1 means OFF. This must run early — hence it's in ui.el
-;; which loads right after core.el.
-(menu-bar-mode -1)    ; Top menu bar (File, Edit, etc.)
-(tool-bar-mode -1)    ; Icon toolbar below the menu
-(scroll-bar-mode -1)  ; Scrollbar on the right
-(set-fringe-mode 0)   ; The thin margins on left/right of buffer
+;; Relative line numbers. Essential for Vim — lets you jump with "12j" or "5k"
+;; without counting. Absolute numbers are shown for non-vim buffers.
+(setq display-line-numbers-type 'relative)
+(global-display-line-numbers-mode 1)
 
-;; No startup screen. Drop straight into scratch.
-(setq inhibit-startup-message t)
-(setq initial-scratch-message nil)
+;; Don't show line numbers in certain modes — they're not code.
+(dolist (mode '(term-mode-hook
+                vterm-mode-hook
+                eat-mode-hook
+                shell-mode-hook
+                eshell-mode-hook
+                dired-mode-hook
+                ibuffer-mode-hook
+                magit-mode-hook
+                help-mode-hook
+                org-agenda-mode-hook
+                messages-buffer-mode-hook))
+  (add-hook mode (lambda () (display-line-numbers-mode 0))))
 
 ;;; ============================================================
-;;; SECTION 2: FONT
+;;; FONT SETUP — Graceful fallback if font not available
 ;;; ============================================================
 
-;; We define fonts as variables so you can change them in one
-;; place without hunting through the file.
-;;
-;; Why a function instead of setq?
-;; Font availability differs by OS. The function checks if the
-;; font exists before applying it, and falls back gracefully.
-;; On a fresh machine that hasn't run bootstrap.sh yet, Emacs
-;; won't error — it'll just use the system default.
+;; Define fonts as variables so you can change them in one place.
+;; The function checks if the font exists before applying it.
+;; On a fresh machine, this fails silently and uses system default.
 
 (defvar suhas/font-default "JetBrains Mono"
-  "Primary font for code and general text.")
+  "Primary font for code and text.")
 
 (defvar suhas/font-size 110
-  "Font size in units of 1/10 pt. 110 = 11pt.")
+  "Font size in 1/10 pt. 110 = 11pt.")
 
-(defun suhas/apply-fonts ()
-  "Apply fonts if available, fall back silently if not."
+(defun suhas/apply-font ()
+  "Apply fonts if available, else silently use system default."
   (when (find-font (font-spec :name suhas/font-default))
     (set-face-attribute 'default nil
                         :font suhas/font-default
@@ -51,139 +51,154 @@
                         :height suhas/font-size)))
 
 ;;; ============================================================
-;;; SECTION 3: THEME — DAEMON-SAFE LOADING
+;;; THEME SYSTEM — Toggle between installed themes
 ;;; ============================================================
 
-;; modus-vivendi is built into Emacs 28+. No install needed.
-;; It's designed for readability and passes WCAG AAA contrast.
-;; modus-vivendi-tritanopia is the variant you were using —
-;; optimized for blue/yellow color distinction.
-;;
-;; Why a function?
-;; We need to call this AFTER a frame exists (daemon safety).
-;; We attach it to hooks below rather than calling it directly.
+;; Available themes. Add your custom themes here after installing via package.el.
+;; Built-in themes don't need installation:
+;; modus-vivendi, modus-operandi, tango-dark, wombat, etc.
+;; External themes: doom-themes, nord, dracula, etc (install via M-x package-install)
+(defvar suhas/themes
+  '(misterioso
+    modus-vivendi
+    modus-operandi
+    tango-dark
+    wombat
+    deeper-blue
+    wheatgrass
+    gruber-darker)
+  "List of themes to cycle through.")
 
-(defun suhas/apply-theme ()
-  "Load theme and apply fonts. Safe for daemon mode."
-  ;;(load-theme 'wheatgrass)
-  ;;(load-theme 'modus-vivendi-tinted)
-  ;;(load-theme 'modus-vivendi-tritanopia t)
-  ;;(load-theme 'modus-vivendi-deuteranopia)
-  (load-theme 'misterioso)
-  ;;(load-theme 'deeper-blue)
-  ;;(load-theme 'leuven-dark)
-  ;;(load-theme 'tango-dark)
-  ;;(load-theme 'wombat)
-  ;;(load-theme 'gruber-darker)
-  (suhas/apply-fonts))
+;; Track which theme is currently active.
+(defvar suhas/current-theme-index 0
+  "Index of current theme in suhas/themes.")
 
-;; Two cases:
-;; 1. Normal Emacs start — frame exists immediately, load now.
-;; 2. Daemon mode — no frame at startup, wait for first client.
+(defun suhas/apply-theme (theme-name)
+  "Load THEME-NAME and apply fonts. Safe for daemon mode."
+  ;; Disable all current themes first (prevents color conflicts).
+  (mapc #'disable-theme custom-enabled-themes)
+  ;; Load the new theme.
+  (load-theme theme-name t)
+  ;; Apply fonts.
+  (suhas/apply-font)
+  ;; Show what theme we're using.
+  (message "Loaded theme: %s" theme-name))
+
+(defun suhas/next-theme ()
+  "Cycle to the next theme."
+  (interactive)
+  (setq suhas/current-theme-index
+        (mod (1+ suhas/current-theme-index) (length suhas/themes)))
+  (suhas/apply-theme (nth suhas/current-theme-index suhas/themes)))
+
+(defun suhas/prev-theme ()
+  "Cycle to the previous theme."
+  (interactive)
+  (setq suhas/current-theme-index
+        (mod (1- suhas/current-theme-index) (length suhas/themes)))
+  (suhas/apply-theme (nth suhas/current-theme-index suhas/themes)))
+
+(defun suhas/theme-menu ()
+  "Interactive menu to select a theme."
+  (interactive)
+  (let* ((theme-names (mapcar #'symbol-name suhas/themes))
+         (choice (completing-read "Choose theme: " theme-names)))
+    (setq suhas/current-theme-index
+          (position (intern choice) suhas/themes))
+    (suhas/apply-theme (intern choice))))
+
+;; Load the first theme on startup.
+;; Handle both normal startup and daemon mode.
 (if (daemonp)
+    ;; Daemon mode: wait for first client frame
     (add-hook 'after-make-frame-functions
               (lambda (frame)
                 (with-selected-frame frame
-                  (suhas/apply-theme))))
-  (suhas/apply-theme))
+                  (suhas/apply-theme (nth 0 suhas/themes)))))
+  ;; Normal startup: apply immediately
+  (suhas/apply-theme (nth 0 suhas/themes)))
 
 ;;; ============================================================
-;;; SECTION 4: LINE NUMBERS
+;;; CURSOR STYLE — Horizontal bar, persistent
 ;;; ============================================================
 
-;; Relative line numbers. Essential for Vim — lets you jump
-;; with `12j`, `5k` without counting.
-(setq display-line-numbers-type 'relative)
-(global-display-line-numbers-mode 1)
+;; Set cursor type globally. hbar = horizontal bar, 2 = height.
+;; This applies to all buffers unless overridden locally.
+(setq-default cursor-type '(hbar . 2))
 
-;; Some buffers don't need line numbers — they're not code.
-;; Turn them off for these major modes.
-(dolist (mode '(term-mode-hook
-                vterm-mode-hook
-                eat-mode-hook
-                shell-mode-hook
-                eshell-mode-hook
-                dired-mode-hook
-                ibuffer-mode-hook
-                magit-mode-hook
-                help-mode-hook
-                org-agenda-mode-hook))
-  (add-hook mode (lambda ()
-                   (display-line-numbers-mode 0))))
+;; Toggle cursor visibility on demand.
+(defun suhas/toggle-cursor ()
+  "Toggle cursor visibility and style."
+  (interactive)
+  (if cursor-type
+      (setq cursor-type nil)
+    (setq cursor-type '(hbar . 2)))
+  (message "Cursor: %s" (if cursor-type "visible" "hidden")))
 
 ;;; ============================================================
-;;; SECTION 5: MODELINE
+;;; MODELINE — Minimal, clean, informative
 ;;; ============================================================
 
+;; Show column number alongside line number.
 (column-number-mode 1)
+
+;; Show time in the modeline (right side).
 (setq display-time-format "%H:%M"
       display-time-24hr-format t
       display-time-default-load-average nil)
 (display-time-mode 1)
 
-;; Hide ALL minor modes from modeline — they add noise, not value.
-;; You know what's enabled from your config, not from the modeline.
+;; Build a custom modeline that shows:
+;; - Evil state (N/I/V/R/E)
+;; - Buffer name
+;; - Position (line, column)
+;; - Git branch (if in a repo)
+;; - Major mode
+;; - Time
+;;
+;; We explicitly hide minor modes — they add noise.
 (setq-default mode-line-format
               '("%e"
                 mode-line-front-space
-                ;; Evil state indicator
+                ;; Evil state indicator (N=normal, I=insert, V=visual, R=replace, E=emacs)
                 (:eval (cond
-                        ((evil-normal-state-p)  " N ")
-                        ((evil-insert-state-p)  " I ")
-                        ((evil-visual-state-p)  " V ")
-                        ((evil-replace-state-p) " R ")
-                        (t                      " E ")))
+                        ((bound-and-true-p evil-mode)
+                         (cond ((evil-normal-state-p)  " N ")
+                               ((evil-insert-state-p)  " I ")
+                               ((evil-visual-state-p)  " V ")
+                               ((evil-replace-state-p) " R ")
+                               (t                      " E ")))
+                        (t " - ")))  ; Fallback if evil not loaded
                 "  "
                 ;; Buffer name
                 mode-line-buffer-identification
                 "  "
-                ;; Position
+                ;; Position (line, column)
                 "(%l,%c)"
                 "  "
-                ;; Git branch
+                ;; Git branch (if vc-mode is active)
                 (vc-mode vc-mode)
                 "  "
-                ;; Major mode only — no minor modes
+                ;; Major mode only (no minor modes)
                 "%m"
                 "  "
                 ;; Time
                 display-time-string
                 mode-line-end-spaces))
 
-(setq mode-line-modes
-      (mapcar (lambda (x)
-                (if (and (consp x)
-                         (eq (car x) :propertize))
-                    x
-                  x))
-              mode-line-modes))
-
 ;;; ============================================================
-;;; SECTION 6: VISUAL QUALITY OF LIFE
+;;; VISUAL POLISH
 ;;; ============================================================
 
-;; Highlight the current line. Subtle but useful — your eye
-;; immediately knows where the cursor is.
+;; Highlight the current line. Subtle but your eye finds it instantly.
 (global-hl-line-mode 1)
 
-;; When you have two windows showing the same file, keep both
-;; displays in sync (same syntax highlighting, etc.)
-(setq truncate-lines t) ; Don't wrap long lines, let them extend
+;; Don't wrap long lines. They extend beyond the window edge.
+;; You navigate with arrow keys or vim hjkl to see them.
+(setq truncate-lines t)
 
-;; Smooth pixel scrolling. Emacs 29+ has this built in.
-;; Makes scrolling feel less like jumping between paragraphs.
-;; WITH this:
-(setq scroll-step 1
-      scroll-margin 5
-      scroll-conservatively 101
-      fast-but-imprecise-scrolling t)
-
-;; Show matching parens instantly, no delay.
-(setq show-paren-delay 0)
+;; Show matching parens instantly with no delay (defined in core too, but repeating for emphasis).
 (show-paren-mode 1)
-
-;; Flash the modeline instead of ringing a bell.
-;; Completely silent but you still get visual feedback.
-(setq ring-bell-function 'ignore)
+(setq show-paren-delay 0)
 
 ;;; ui.el ends here

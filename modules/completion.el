@@ -1,142 +1,140 @@
-;;; completion.el --- Vertico, Orderless, Marginalia, Consult
-;;; The four packages that make finding anything instant.
+;;; completion.el --- Vertico, Marginalia, Consult, Corfu
+;;; Fast fuzzy completion in minibuffer (Vertico) and in-buffer (Corfu).
 ;;;
-;;; How they fit together:
-;;; vertico   — the UI: shows candidates in a vertical list
-;;; orderless — the engine: fuzzy/space-separated matching
-;;; marginalia — the context: adds annotations next to candidates
-;;; consult   — the commands: search, grep, find, switch, preview
+;;; How they work together:
+;;; - vertico: Vertical list UI for minibuffer completion (file, buffer, command selection)
+;;; - marginalia: Adds annotations (file size, command docstring, etc)
+;;; - consult: Enhanced commands (buffer switch with preview, grep with preview, etc)
+;;; - orderless: Fuzzy matching — "py find" matches "python-find-file"
+;;; - corfu: In-buffer completion popup (code suggestions, LSP completions)
 
 ;;; ============================================================
-;;; SECTION 1: VERTICO — VERTICAL COMPLETION UI
+;;; VERTICO — Vertical completion list
 ;;; ============================================================
 
-;; Replaces Emacs' default horizontal completion with a clean
-;; vertical list. Works with any command that uses minibuffer
-;; completion — find-file, switch-buffer, M-x, everything.
+;; Replaces Emacs' default horizontal completion menu.
+;; Works for any minibuffer task: find-file, switch-buffer, M-x, etc.
 
 (use-package vertico
-  :ensure t
   :init
   (vertico-mode 1)
   :custom
-  (vertico-count 12)          ; Show 15 candidates at a time
-  (vertico-resize nil)          ; Shrink list if fewer candidates
-  (vertico-cycle t))          ; Wrap around at top/bottom
+  (vertico-count 12)        ; Show 12 candidates at a time
+  (vertico-resize nil)      ; Shrink list if fewer candidates
+  (vertico-cycle t))        ; Wrap around when you reach the end
 
-;; vertico-directory: makes file navigation feel like a file picker.
-;; DEL deletes one path component, RET enters directories.
+;; vertico-directory: Makes file navigation smooth with DEL to go back.
 (use-package vertico-directory
   :after vertico
-  :ensure nil                 ; Built into vertico, no separate install
+  :ensure nil              ; Built-in, no separate install
+  :bind (:map vertico-map
+              ("RET" . vertico-directory-enter)
+              ("DEL"  . vertico-directory-delete-char)
+              ("M-DEL" . vertico-directory-delete-word))
   :hook (rfn-eshadow-update-overlay . vertico-directory-tidy))
 
 ;;; ============================================================
-;;; SECTION 2: ORDERLESS — FUZZY MATCHING ENGINE
+;;; ORDERLESS — Fuzzy matching engine
 ;;; ============================================================
 
-;; Orderless lets you type space-separated components in any order.
-;; Example: "find py" matches "python-find-file", "find-python", etc.
-;; This is what makes completion feel modern and fast.
+;; By default, Emacs requires exact substring matches.
+;; Orderless lets you type space-separated words in any order.
+;; Example: "py find" matches "python-find-file" or "find-python-mode".
 
 (use-package orderless
-  :ensure t
   :custom
+  ;; Use orderless for all completion, except files use partial-completion
   (completion-styles '(orderless basic))
-  (completion-category-defaults nil)
   (completion-category-overrides
-   '((file (styles partial-completion)))) ; Files still use path completion
+   '((file (styles partial-completion))))
+  ;; How to match: literal substring, regex, or initialism (ff = find-file)
   (orderless-matching-styles
-   '(orderless-literal          ; Exact substring match
-     orderless-regexp           ; Regex match
-     orderless-initialism)))    ; "ff" matches "find-file"
+   '(orderless-literal
+     orderless-regexp
+     orderless-initialism)))
 
 ;;; ============================================================
-;;; SECTION 3: MARGINALIA — ANNOTATIONS
+;;; MARGINALIA — Annotations in completion menu
 ;;; ============================================================
 
-;; Adds helpful context next to completion candidates.
-;; M-x shows what the command does.
-;; find-file shows file size and date.
-;; switch-buffer shows the major mode.
-;; All of this without slowing down the UI.
+;; Shows helpful context next to each candidate:
+;; - M-x: command's docstring
+;; - find-file: file size and modification date
+;; - switch-buffer: buffer's major mode
+;; All without slowing down the UI.
 
 (use-package marginalia
-  :ensure t
   :init
   (marginalia-mode 1))
 
 ;;; ============================================================
-;;; SECTION 4: CONSULT — POWERFUL SEARCH COMMANDS
+;;; CONSULT — Enhanced search and navigation commands
 ;;; ============================================================
 
-;; Consult provides enhanced versions of built-in commands.
-;; The key ones you'll use daily:
-;;   consult-line    → search in current buffer (SPC s s)
-;;   consult-grep    → grep across project files (SPC s g)
-;;   consult-find    → find file by name (SPC s f)
-;;   consult-buffer  → switch buffer with preview (SPC b b)
-;;   consult-imenu   → jump to function/class in file
+;; Consult replaces built-in commands with preview-aware versions:
+;; - consult-buffer: Switch buffer with live preview
+;; - consult-line: Search current buffer (like Ctrl+F)
+;; - consult-grep: Grep project files with preview
+;; - consult-find: Find file by name
+;; - consult-imenu: Jump to function/class in current file
 
 (use-package consult
-  :ensure t
-  :after evil
-  :config
+  :after vertico
+  :bind
+  ;; Use consult for these standard commands
+  ([remap switch-to-buffer] . consult-buffer)
+  ([remap goto-line] . consult-goto-line)
+  ([remap imenu] . consult-imenu)
+  :custom
+  ;; Preview candidates instantly as you navigate
+  (consult-preview-key 'any)
+  ;; Tell consult to use project.el for finding project root
+  (consult-project-function
+   (lambda (_)
+     (when-let (project (project-current))
+       (project-root project)))))
 
-  ;; Preview files as you navigate candidates.
-  ;; Move through grep results and see the file open live.
-  (setq consult-preview-key 'any)
-
-  ;; Use consult for buffer switching — replaces switch-to-buffer.
-  ;; You get a live preview of each buffer as you select it.
-  ;;(global-set-key [remap switch-to-buffer] #'consult-buffer)
-  (global-set-key [remap goto-line]        #'consult-goto-line)
-  (global-set-key [remap imenu]            #'consult-imenu)
-
-  ;; Tell consult how to find project root.
-  ;; We use project.el (built-in) — no extra package needed.
-  (setq consult-project-function
-        (lambda (_)
-          (when-let (project (project-current))
-            (project-root project)))))
-
-;;; ===========================================================
-;;; SECTION 5: CORFU — IN-BUFFER CODE COMPLETION POPUP
+;;; ============================================================
+;;; CORFU — In-buffer code completion popup
 ;;; ============================================================
 
-;; Vertico handles minibuffer completion (commands, files, buffers).
-;; Corfu handles in-buffer completion (code, words, LSP suggestions).
-;; They're complementary — you need both.
-;;
-;; When eglot sends completion candidates from a language server,
-;; corfu shows them in a small popup next to your cursor.
+;; Vertico/Consult handle minibuffer completion (commands, files, buffers).
+;; Corfu handles in-buffer completion (code suggestions, LSP completions).
+;; When you're typing code and eglot (LSP) suggests completions,
+;; Corfu shows them in a small popup next to your cursor.
 
 (use-package corfu
-  :ensure t
-  :custom
-  (corfu-auto t)              ; Show popup automatically while typing
-  (corfu-auto-delay 0.2)      ; Wait 200ms before showing popup
-  (corfu-auto-prefix 2)       ; Start after typing 2 characters
-  (corfu-cycle t)             ; Wrap around candidate list
-  (corfu-quit-no-match t)     ; Hide popup if no matches
   :init
-  (global-corfu-mode 1))
+  (global-corfu-mode 1)
+  :custom
+  (corfu-auto t)           ; Show popup automatically while typing
+  (corfu-auto-delay 0.2)   ; Wait 200ms after you stop typing
+  (corfu-auto-prefix 2)    ; Only show popup after 2+ characters
+  (corfu-cycle t)          ; Tab wraps around candidate list
+  (corfu-quit-no-match t)) ; Hide popup if no matches
 
-;; corfu-terminal: makes corfu work in terminal Emacs too.
-;; Without this, the popup renders as garbage in TTY mode.
+;; corfu-terminal: Makes corfu work in terminal Emacs (no GUI).
+;; Without this, completion renders as garbage in TTY mode.
 (use-package corfu-terminal
-  :ensure t
   :after corfu
   :config
   (unless (display-graphic-p)
     (corfu-terminal-mode 1)))
 
-;; cape: adds extra completion sources to corfu.
-;; File paths, dictionary words, and more — on top of LSP.
+;;; ============================================================
+;;; CAPE — Extra completion sources
+;;; ============================================================
+
+;; Corfu shows LSP completions by default.
+;; Cape adds other sources: file paths, dictionary words, dabbrev (text in buffer).
+;; These all feed into Corfu's popup.
+
 (use-package cape
-  :ensure t
+  :after corfu
   :config
+  ;; Add file completion (M-: /path/to/fi<TAB> suggests files)
   (add-to-list 'completion-at-point-functions #'cape-file)
+  ;; Add dabbrev (completes words that appear elsewhere in the buffer)
   (add-to-list 'completion-at-point-functions #'cape-dabbrev))
 
-;;; completion.el ends here (ido-mode 1)
+;;; completion.el ends here
