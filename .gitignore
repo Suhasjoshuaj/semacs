@@ -8,6 +8,7 @@ eln-cache/
 # Package management (elpaca)
 elpaca/
 tree-sitter/
+transient/
 
 # Compiled Elisp files
 *.elc

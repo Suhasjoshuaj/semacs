@@ -19,7 +19,7 @@
   :config
   (evil-mode 1)
 
-  (defvar suhas/cursor-color "#ff6b6b")
+  (defvar suhas/cursor-color "#ff6b6a")
 
   (setq evil-normal-state-cursor  '(hbar . 4))
   (setq evil-insert-state-cursor  '(hbar . 2))
