@@ -16,6 +16,10 @@
                                 :foreground "#888"
                                 :background "#1e1e1e")))
 
+(defun suhas/switch-to-tab (n)
+  (let* ((tabs (tab-bar-tabs)) (tab (nth (1- n) tabs)))
+    (when tab (tab-bar-select-tab-by-name (alist-get 'name tab)))))
+
 (defun suhas/smart-window-split-below ()
   "Split window horizontally, new window uses ~30% of height."
   (interactive)
@@ -35,7 +39,10 @@
       (set-window-buffer (nth i windows)
                          (nth (mod (+ i 1) (length windows)) buffers)))))
 
+;;; WINDOW SIZING BINDINGS
 (global-set-key (kbd "C-x +") #'balance-windows)
+(global-set-key (kbd "C-x -") #'shrink-window)
+(global-set-key (kbd "C-x |") #'shrink-window-horizontally)
 
 (use-package project
   :ensure nil

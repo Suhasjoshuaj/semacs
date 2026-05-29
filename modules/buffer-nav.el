@@ -1,22 +1,15 @@
-;;; buffer-nav.el --- Smart buffer rotation (C-; and C-,)
-;;; Rotates through code buffers, skipping the noise (*Messages*, *Warnings*, etc).
-
-;;; ============================================================
-;;; BUFFER FILTER
-;;; ============================================================
-
-;; These buffers are "noise" — not code you're editing.
-;; We skip them when cycling with C-; and C-,.
-;; Feel free to add more patterns based on your workflow.
+;;; buffer-nav.el --- Smart buffer rotation and toggle
 
 (defvar suhas/buffer-skip-patterns
-  '("^\\*"          ; Buffers starting with * (*Messages*, *Help*, *Warnings*, etc)
-    "^TAGS$"        ; TAGS files (ctags)
-    "magit")        ; Magit buffers
-  "List of buffer name patterns (regex) to skip during cycling.")
+  '("^\\*"           ; Skip *buffers*
+    "^ "             ; Skip space-prefixed
+    "^TAGS$"
+    "magit"
+    "xref")
+  "Patterns to skip when cycling buffers.")
 
 (defun suhas/should-skip-buffer-p (buf-name)
-  "Return t if BUF-NAME matches any skip pattern."
+  "Return t if buffer should be skipped."
   (catch 'skip
     (dolist (pattern suhas/buffer-skip-patterns)
       (when (string-match-p pattern buf-name)
@@ -24,47 +17,54 @@
     nil))
 
 (defun suhas/get-next-buffer (direction)
-  "Get next/previous code buffer, skipping special buffers.
-DIRECTION is 'next or 'prev."
+  "Get next/previous code buffer, skipping special buffers."
   (let* ((all-buffers (buffer-list))
          (current-buf (current-buffer))
-         (current-pos (position current-buf all-buffers))
-         (sorted-buffers
-          (if (eq direction 'next)
-              ;; For next: rotate list so current is first, then take cdr
-              (append (nthcdr (1+ current-pos) all-buffers)
-                      (take (1+ current-pos) all-buffers))
-            ;; For prev: reverse rotate
-            (append (reverse (take current-pos all-buffers))
-                    (reverse (nthcdr current-pos all-buffers))))))
-    ;; Find first buffer that doesn't match skip patterns
-    (or (seq-find (lambda (buf)
-                    (not (suhas/should-skip-buffer-p (buffer-name buf))))
-                  sorted-buffers)
-        ;; Fallback: if all buffers are "special", just use the next one
-        current-buf)))
+         (current-pos (seq-position all-buffers current-buf)))
+    (if (not current-pos)
+        current-buf
+      (let* ((remaining (if (eq direction 'next)
+                            (nthcdr (1+ current-pos) all-buffers)
+                          (reverse (take current-pos all-buffers))))
+             (wrapped (if (eq direction 'next)
+                          (take (1+ current-pos) all-buffers)
+                        (reverse (nthcdr current-pos all-buffers))))
+             (search-list (append remaining wrapped)))
+        (or (seq-find (lambda (buf)
+                        (not (suhas/should-skip-buffer-p (buffer-name buf))))
+                      search-list)
+            current-buf)))))
 
-(defun suhas/next-buffer ()
-  "Switch to next code buffer, skipping *Messages*, *Help*, etc."
-  (interactive)
-  (switch-to-buffer (suhas/get-next-buffer 'next)))
+(defun suhas/next-buffer () (interactive)
+  "Cycle to next code buffer (C-;). Tracks last buffer for toggle."
+  (let ((cur (current-buffer)))
+    (switch-to-buffer (suhas/get-next-buffer 'next))
+    (setq suhas/last-buffer cur)))
 
-(defun suhas/prev-buffer ()
-  "Switch to previous code buffer, skipping special buffers."
-  (interactive)
-  (switch-to-buffer (suhas/get-next-buffer 'prev)))
+(defun suhas/prev-buffer () (interactive)
+  "Cycle to previous code buffer (C-,). Tracks last buffer for toggle."
+  (let ((cur (current-buffer)))
+    (switch-to-buffer (suhas/get-next-buffer 'prev))
+    (setq suhas/last-buffer cur)))
 
 ;;; ============================================================
-;;; ALTERNATIVE: Include all buffers if you want
+;;; TOGGLE BETWEEN CURRENT AND PREVIOUS (C-')
 ;;; ============================================================
 
-;; If you prefer to cycle through EVERYTHING including *Messages*,
-;; just comment out the evil.el bindings for C-; and C-, and use these instead:
-;;
-;; (global-set-key (kbd "C-,") #'previous-buffer)
-;; (global-set-key (kbd "C-;") #'next-buffer)
-;;
-;; These are Emacs built-ins that cycle through all buffers.
-;; But usually skipping is better — keeps you focused on code.
+(defvar suhas/last-buffer nil
+  "Track the previous buffer for C-' toggle.
+  When you press C-;, it sets this to the buffer you just left.
+  When you press C-', it swaps current and previous.")
+
+(defun suhas/toggle-last-buffer () (interactive)
+  "Toggle between current and last buffer (C-').
+   Tracks what you came from so you always toggle correctly."
+  (if suhas/last-buffer
+      ;; We have a previous buffer — swap
+      (let ((cur (current-buffer)))
+        (switch-to-buffer suhas/last-buffer)
+        (setq suhas/last-buffer cur))  ; Now cur becomes "last" for next toggle
+    ;; No previous tracked — use other-buffer
+    (switch-to-buffer (other-buffer))))
 
 ;;; buffer-nav.el ends here

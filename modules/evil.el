@@ -112,7 +112,9 @@
   (suhas/leader
     "SPC" #'consult-buffer      ; SPC SPC = quick buffer switch
     "k"   #'kill-current-buffer ; SPC k = kill buffer
-    "b i" #'ibuffer)            ; SPC b i = buffer list
+    "b i" #'ibuffer             ; SPC b i = buffer list
+    "b l" #'buffer-list)
+  
 
   ;; ── Window operations ──────────────────────────────────────
   (suhas/leader
@@ -123,7 +125,9 @@
     "w h" #'evil-window-left
     "w l" #'evil-window-right
     "w q" #'evil-window-delete
-    "w o" #'delete-other-windows)
+    "w o" #'delete-other-windows
+    "w =" #'balance-windows
+    "w r" #'suhas/rotate-windows)
 
   ;; ── Search operations ──────────────────────────────────────
   (suhas/leader
@@ -135,11 +139,14 @@
   (suhas/leader
     "c e" #'suhas/open-config
     "c r" #'suhas/reload-config
-    "c v" #'suhas/toggle-vim-mode)  ; Toggle vim mode
+    "c v" #'suhas/toggle-vim-mode  ; Toggle vim mode
+    "s r" #'consult-ripgrep
+    "c m" #'suhas/toggle-modeline-verbose)
 
   ;; ── Terminal ───────────────────────────────────────────────
   (suhas/leader
-    "t t" #'suhas/open-terminal)  ; Open terminal (defined in terminal.el)
+    "t t" #'suhas/open-terminal  ; Open terminal (defined in terminal.el)
+    "t k" #'suhas/close-terminal)
 
   ;; ── LSP / Errors ───────────────────────────────────────────
   (suhas/leader
@@ -148,7 +155,9 @@
     "e l" #'flymake-show-buffer-diagnostics
     "e a" #'eglot-code-actions
     "e r" #'eglot-rename
-    "e f" #'eglot-format-buffer)
+    "e f" #'eglot-format-buffer
+    "f o" #'formar-all-buffer)
+
 
   ;; ── Compile ────────────────────────────────────────────────
   (suhas/leader
@@ -158,6 +167,32 @@
   (suhas/leader
     "u t" #'suhas/theme-menu))  ; SPC u t = theme menu
 
+  ;; ── Workspace operations ───────────────────────────────────
+  (suhas/leader
+    "a n" #'tab-bar-new-tab
+    "a k" #'tab-bar-close-tab
+    "a r" #'tab-bar-rename-tab
+    "a l" #'tab-bar-switch-to-next-tab
+    "a h" #'tab-bar-switch-to-prev-tab)
+
+
+  ;; ── Project operations ─────────────────────────────────────
+  (suhas/leader
+    "p f" #'project-find-file
+    "p g" #'project-find-regexp
+    "p s" #'project-search
+    "p r" #'project-query-replace
+    "p b" #'project-switch-to-buffer
+    "p d" #'project-dired
+    "p k" #'project-kill-buffers)
+
+  ;; ── MAGIT ──────────────────────────────────────────────────
+  (suhas/leader "g s" #'magit-status "g l" #'magit-log "g b" #'magit-blame)
+
+  ;; ── ORG ──────────────────────────────────────────────────--
+  (suhas/leader "o a" #'org-agenda "o c" #'org-capture "o l" #'org-store-link)
+
+
 ;;; ============================================================
 ;;; GLOBAL KEYBINDINGS (work in any mode, any state)
 ;;; ============================================================
@@ -166,6 +201,9 @@
 ;; These are defined globally so they work everywhere.
 (global-set-key (kbd "C-,") #'suhas/prev-buffer)
 (global-set-key (kbd "C-;") #'suhas/next-buffer)
+
+;;; BUFFER TOGGLE (C-' for last two)
+(global-set-key (kbd "C-'") #'suhas/toggle-last-buffer)
 
 ;; Workspace switching with Meta+1..9
 (defun suhas/switch-to-tab (n)
@@ -197,8 +235,26 @@
   (evil-set-initial-state 'magit-mode 'emacs)
   (evil-set-initial-state 'magit-status-mode 'emacs)
   (evil-set-initial-state 'magit-log-mode 'emacs)
+  (evil-set-initial-state 'eat-mode 'normal)
   (evil-set-initial-state 'help-mode 'emacs)
   (evil-set-initial-state 'info-mode 'emacs))
+
+(with-eval-after-load 'dired
+  (define-key dired-mode-map (kbd "j") #'dired-next-line)
+  (define-key dired-mode-map (kbd "k") #'dired-previous-line)
+  (define-key dired-mode-map (kbd "h") #'dired-up-directory)
+  (define-key dired-mode-map (kbd "l") #'dired-find-file)
+  (define-key dired-mode-map (kbd "v") #'dired-toggle-marks)
+  (define-key dired-mode-map (kbd "d") #'dired-flag-file-deletion)
+  (define-key dired-mode-map (kbd "x") #'dired-do-flagged-delete))
+ 
+(with-eval-after-load 'ibuffer
+  (define-key ibuffer-mode-map (kbd "j") #'ibuffer-forward-line)
+  (define-key ibuffer-mode-map (kbd "k") #'ibuffer-backward-line)
+  (define-key ibuffer-mode-map (kbd "RET") #'ibuffer-visit-buffer)
+  (define-key ibuffer-mode-map (kbd "d") #'ibuffer-mark-for-delete)
+  (define-key ibuffer-mode-map (kbd "x") #'ibuffer-do-delete))
+
 
 ;;; ============================================================
 ;;; VERTICO NAVIGATION ENHANCEMENTS

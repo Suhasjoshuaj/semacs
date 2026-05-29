@@ -4,11 +4,13 @@ auto-saves/
 backups/
 locks/
 eln-cache/
+elpa/
 
 # Package management (elpaca)
 elpaca/
 tree-sitter/
 transient/
+fd/
 
 # Compiled Elisp files
 *.elc
