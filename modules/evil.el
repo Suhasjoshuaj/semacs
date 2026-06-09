@@ -66,14 +66,7 @@
   ;; Only load evil if vim-mode is enabled.
   ;; This lets users start without Vim if they want.
   (when suhas/vim-mode-enabled
-    (evil-mode 1))
-  :custom
-  ;; Cursor style: horizontal bar in normal mode, thinner in insert mode.
-  (evil-normal-state-cursor  '(hbar . 4))
-  (evil-insert-state-cursor  '(hbar . 2))
-  (evil-visual-state-cursor  '(hbar . 4))
-  (evil-replace-state-cursor '(hbar . 4))
-  (evil-emacs-state-cursor   '(hbar . 2)))
+    (evil-mode 1)))
 
 ;;; ============================================================
 ;;; ESCAPE KEY
@@ -262,7 +255,9 @@
 ;; When using vertico (minibuffer completion), add vim-like navigation.
 ;; C-j/C-k to go down/up through candidates.
 (with-eval-after-load 'vertico
-  (define-key vertico-map (kbd "C-j") #'vertico-next)
-  (define-key vertico-map (kbd "C-k") #'vertico-previous))
+  (progn
+    (set-face-attribute 'vertico-current nil :underline nil)
+    (define-key vertico-map (kbd "C-j") #'vertico-next)
+    (define-key vertico-map (kbd "C-k") #'vertico-previous)))
 
 ;;; evil.el ends here

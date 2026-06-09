@@ -64,29 +64,16 @@
               (lambda (frame) (with-selected-frame frame (suhas/apply-theme (nth suhas/current-theme-index suhas/themes)))))
   (suhas/apply-theme (nth suhas/current-theme-index suhas/themes)))
 
-;;; ============================================================
-;;; CURSOR — WORKS CORRECTLY
-;;; ============================================================
-
-(setq-default cursor-type '(hbar . 2))
-
-(defun suhas/toggle-cursor () (interactive)
-  "Toggle cursor visibility."
-  (if (default-value 'cursor-type)
-      (setq-default cursor-type nil)
-    (setq-default cursor-type '(hbar . 2)))
-  (redraw-frame)
-  (message "Cursor: %s" (if (default-value 'cursor-type) "visible" "hidden")))
 
 ;;; ============================================================
 ;;; MODELINE
 ;;; ============================================================
 
-(column-number-mode 1)
-(setq display-time-format "%H:%M" display-time-24hr-format t display-time-default-load-average nil)
-(display-time-mode 1)
+;;(column-number-mode 1)
+;;(setq display-time-format "%H:%M" display-time-24hr-format t display-time-default-load-average nil)
+;;(display-time-mode 1)
 
-(defvar suhas/modeline-detailed-p t)
+(defvar suhas/modeline-detailed-p nil)
 
 (defun suhas/toggle-modeline-info () (interactive)
   (setq suhas/modeline-detailed-p (not suhas/modeline-detailed-p))
@@ -97,11 +84,11 @@
               '("%e"
                 mode-line-front-space
                 (:eval (cond ((bound-and-true-p evil-mode)
-                              (cond ((evil-normal-state-p)  "🟣 ")
-                                    ((evil-insert-state-p)  "🟢 ")
-                                    ((evil-visual-state-p)  "🔵 ")
-                                    ((evil-replace-state-p) "🔴 ")
-                                    (t                      "⚪ ")))
+                              (cond ((evil-normal-state-p)  " N ")
+                                    ((evil-insert-state-p)  " I ")
+                                    ((evil-visual-state-p)  " V ")
+                                    ((evil-replace-state-p) " R ")
+                                    (t                      " E ")))
                        (t "⚪ ")))
                 mode-line-buffer-identification
                 " "

@@ -68,10 +68,11 @@
 ;; 10. COMPILE — Compile command bindings and setup.
 (suhas/load-module "compile")
 
+
 (suhas/load-module "formatter")
 (suhas/load-module "magit")
 (suhas/load-module "org")
-
+ 
 ;;; ============================================================
 ;;; UTILITY FUNCTIONS
 ;;; ============================================================

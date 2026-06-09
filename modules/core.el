@@ -8,11 +8,10 @@
 ;; Emacs has a built-in package manager. No external dependency needed.
 ;; We tell it where to find packages (MELPA for bleeding-edge, GNU for stable).
 (require 'package)
-(setq package-archives
-      '(("gnu"    . "https://elpa.gnu.org/packages/")
-        ("nongnu" . "https://elpa.nongnu.org/nongnu/")
-        ("melpa"  . "https://melpa.org/packages/")))
+(add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/"))
+(add-to-list 'package-archives '("nongnu" . "https://elpa.nongnu.org/nongnu/"))
 (package-initialize)
+ 
 
 ;; use-package is a macro that makes package declarations clean and readable.
 ;; It's part of Emacs 29+, but we ensure it's installed for older versions.
