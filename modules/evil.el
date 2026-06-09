@@ -175,7 +175,6 @@
     "a l" #'tab-bar-switch-to-next-tab
     "a h" #'tab-bar-switch-to-prev-tab)
 
-
   ;; ── Project operations ─────────────────────────────────────
   (suhas/leader
     "p f" #'project-find-file
@@ -199,11 +198,11 @@
 
 ;; Rotate through buffers (smart buffer navigation).
 ;; These are defined globally so they work everywhere.
-(global-set-key (kbd "C-,") #'suhas/prev-buffer)
-(global-set-key (kbd "C-;") #'suhas/next-buffer)
+(global-set-key (kbd "C-;") #'suhas/prev-buffer)   ;; but this rotates through all teh code buffers
+(global-set-key (kbd "C-'") #'suhas/next-buffer)   ;; this does the toggle-last-buffer function instead of C-,
 
 ;;; BUFFER TOGGLE (C-' for last two)
-(global-set-key (kbd "C-'") #'suhas/toggle-last-buffer)
+(global-set-key (kbd "C-,") #'suhas/toggle-last-buffer)
 
 ;; Workspace switching with Meta+1..9
 (defun suhas/switch-to-tab (n)

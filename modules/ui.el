@@ -14,8 +14,8 @@
   (pixel-scroll-precision-mode 1))
 
 ;;; FONT
-(defvar suhas/font-default "JetBrains Mono")
-(defvar suhas/font-size 110)
+(defvar suhas/font-default "Iosevka Nerd Font")
+(defvar suhas/font-size 121)
 
 (defun suhas/apply-font ()
   (when (find-font (font-spec :name suhas/font-default))

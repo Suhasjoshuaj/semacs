@@ -4,11 +4,11 @@
   :ensure nil
   :commands eglot eglot-ensure
   :custom
-  (eglot-autoshutdown t)
   (eglot-confirm-server-edits nil)
   (eglot-ignored-server-capabilities
    '(:documentHighlightProvider
      :inlayHintProvider))
+  (eglot-autoshutdown t)
   :config
   (setq eglot-events-buffer-size 0))
 
