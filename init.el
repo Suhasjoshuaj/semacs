@@ -2,6 +2,18 @@
 ;;; NO configuration lives here. This file is a table of contents.
 ;;; All actual configuration lives in separate modules.
 
+;; Show startup time and package count
+(defun efs/display-startup-time ()
+  (let ((package-count (cond
+                        ((featurep 'straight) (length straight--profile-cache))
+                        ((boundp 'package-activated-list) (length package-activated-list))
+                        (t 0))))
+    (message "Emacs loaded %d packages in %s with %d garbage collections."
+             package-count
+             (format "%.2f seconds" (float-time (time-subtract after-init-time before-init-time)))
+             gcs-done)))
+(add-hook 'emacs-startup-hook #'efs/display-startup-time)
+
 ;;; ============================================================
 ;;; GC RESET — Bring garbage collection back to normal
 ;;; ============================================================
