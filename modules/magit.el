@@ -13,11 +13,11 @@
 
 (use-package diff-hl
   :ensure t
-  :init
-  (add-hook 'prog-mode-hook 'turn-on-diff-hl-mode)
-  (add-hook 'vc-dir-mode-hook 'turn-on-diff-hl-mode)
+  :defer t  ; 1. Explicitly tell Emacs not to touch this package at startup
+  :hook ((prog-mode . turn-on-diff-hl-mode)
+         (vc-dir-mode . turn-on-diff-hl-mode)) ; 2. Modern way to append hooks cleanly
   :config
-  ;; Instantly updates the fringe marker as you type
+  ;; 3. This block now safely runs ONLY when diff-hl wakes up for the first time
   (diff-hl-flydiff-mode 1))
 
 ;;; magit.el ends here

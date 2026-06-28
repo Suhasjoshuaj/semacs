@@ -139,17 +139,15 @@
  mode-line-format
  '("%e "
 
-   ;; Evil state
-   (:eval
-    (pcase (bound-and-true-p evil-state)
-      ('normal  " N ")
-      ('insert  " I ")
-      ('visual  " V ")
-      ('replace " R ")
-      ('motion  " M ")
-      (_         " - ")))
-
-   " "
+   ;;;; Evil state
+   ;;(:eval
+    ;;(pcase (bound-and-true-p evil-state)
+      ;;('normal  " N ")
+      ;;('insert  " I ")
+      ;;('visual  " V ")
+      ;;('replace " R ")
+      ;;('motion  " M ")
+      ;;(_         " - ")))
 
    ;; Modified / Read-only status
    mode-line-modified
@@ -194,7 +192,7 @@
     (propertize
      " "
      'display
-     '(space :align-to (- right 7))))
+     '(space :align-to (- right 8))))
 
    ;; Encoding / EOL information
    mode-line-mule-info

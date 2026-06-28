@@ -1,14 +1,29 @@
 ;;; evil.el --- Vim layer, toggleable, with leader key bindings
 
 ;;; ============================================================
-;;; EMACS/VIM MODE TOGGLE
+;;; EMACS/VIM MODE TOGGLE & EVIL SETUP
 ;;; ============================================================
 
-;; Global toggle to switch between Vim and Emacs keybindings.
-;; When disabled, Emacs defaults come back. When enabled, Vim layer activates.
 (defvar suhas/vim-mode-enabled t
   "Whether to use Vim keybindings (evil-mode). Toggle with suhas/toggle-vim-mode.")
 
+(use-package evil
+  :defer t  ; 1. Tells use-package NOT to load evil at startup
+  :init
+  ;; 2. Set necessary configuration variables before loading
+  (setq evil-want-integration t)
+  (setq evil-want-keybinding nil)
+  :config
+  ;; 3. Any configuration that needs evil loaded goes here
+  )
+
+;; 4. Check the variable and enable evil AFTER the frame and UI load completely
+(add-hook 'emacs-startup-hook
+          (lambda ()
+            (when suhas/vim-mode-enabled
+              (evil-mode 1))))
+
+;; Your toggle commands remain unchanged and work instantly
 (defun suhas/toggle-vim-mode ()
   "Toggle evil mode globally."
   (interactive)
@@ -21,8 +36,6 @@
       (evil-mode -1)
       (message "🟢 Emacs mode ENABLED"))))
 
-;; You can also enable vim bindings for just the current buffer,
-;; even if vim mode is globally disabled.
 (defun suhas/evil-local-mode-toggle ()
   "Toggle evil mode for the current buffer only."
   (interactive)
@@ -56,17 +69,6 @@
 
 ;; Treat wrapped lines as multiple lines (for j/k navigation).
 (setq evil-respect-visual-line-mode t)
-
-;;; ============================================================
-;;; EVIL SETUP
-;;; ============================================================
-
-(use-package evil
-  :init
-  ;; Only load evil if vim-mode is enabled.
-  ;; This lets users start without Vim if they want.
-  (when suhas/vim-mode-enabled
-    (evil-mode 1)))
 
 ;;; ============================================================
 ;;; ESCAPE KEY
@@ -158,7 +160,7 @@
 
   ;; ── Theme ──────────────────────────────────────────────────
   (suhas/leader
-    "u t" #'suhas/theme-menu))  ; SPC u t = theme menu
+    "u t" #'suhas/theme-menu)  ; SPC u t = theme menu
 
   ;; ── Workspace operations ───────────────────────────────────
   (suhas/leader
@@ -182,7 +184,7 @@
   (suhas/leader "g s" #'magit-status "g l" #'magit-log "g b" #'magit-blame)
 
   ;; ── ORG ──────────────────────────────────────────────────--
-  (suhas/leader "o a" #'org-agenda "o c" #'org-capture "o l" #'org-store-link)
+  (suhas/leader "o a" #'org-agenda "o c" #'org-capture "o l" #'org-store-link))
 
 
 ;;; ============================================================

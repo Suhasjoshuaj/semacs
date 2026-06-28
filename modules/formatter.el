@@ -2,6 +2,8 @@
 
 (use-package format-all
   :commands format-all-buffer format-all-region
+  :hook
+  ((prog-mode . format-all-ensure-formatter))
   :custom
   (format-all-default-formatters
    '((c-mode . clang-format)
