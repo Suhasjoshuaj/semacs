@@ -23,15 +23,22 @@
 (require 'use-package)
 (setq use-package-always-ensure t)  ; Auto-install packages if missing
 
+;; Windows pinger
+(defconst suhas/windows-p (eq system-type 'windows-nt)
+  "Non-nil when running native Windows Emacs (not WSL).")
+
 ;;; ============================================================
 ;;; PERFORMANCE TUNING
 ;;; ============================================================
 
 ;; exec-path-from-shell: Copy PATH from your shell to Emacs.
 ;; Without this, language servers (clangd, rust-analyzer, etc) aren't found.
-(use-package exec-path-from-shell
-  :init
-  (exec-path-from-shell-initialize))
+(if suhas/windows-p
+    (setq shell-file-name "C:/Program Files/Git/bin/bash.exe"
+          shell-command-switch "-c")
+  (use-package exec-path-from-shell
+    :init
+    (exec-path-from-shell-initialize)))
 
 ;;; ============================================================
 ;;; ENCODING — UTF-8 everywhere
