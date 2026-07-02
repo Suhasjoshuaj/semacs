@@ -1,6 +1,22 @@
 ;;; core.el --- Package manager and sane defaults
 ;;; This loads FIRST. Everything else depends on this.
 
+;;; ---------------------------------------------------------------------------
+;;; Default Directory
+;;; ---------------------------------------------------------------------------
+
+;; Start Emacs in the user's home directory instead of the installation directory.
+(when (string-prefix-p
+       (expand-file-name invocation-directory)
+       default-directory)
+  (setq default-directory
+        (expand-file-name "~")))
+
+(add-hook
+ 'emacs-startup-hook
+ (lambda ()
+   ;; Change the process working directory once.
+   (cd (expand-file-name "~"))))
 ;;; ============================================================
 ;;; PACKAGE MANAGER — Use built-in package.el + use-package
 ;;; ============================================================
