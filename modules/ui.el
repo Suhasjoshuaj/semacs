@@ -123,52 +123,41 @@
      'custom-enabled-themes
      (list theme))))
 
-;;; MODELINE
+;;; --- ModeLine Configuration ---
 
 (column-number-mode 1)
 (size-indication-mode 1)
 
+;; Configure clock display safely
 (setq display-time-format "%H:%M"
       display-time-24hr-format t
       display-time-default-load-average nil)
-
 (display-time-mode 1)
 
-(setq-default
- mode-line-format
- '("%e "
-
-   mode-line-modified
-   " "
-   mode-line-buffer-identification
-   " "
-   mode-line-position
-   " "
-   vc-mode
-   " "
-   mode-line-modes
-   " "
-   mode-line-misc-info
-
-   (:eval
-    (when (bound-and-true-p eglot--managed-mode)
-      " | LSP"))
-
-   (:eval
-    (when (bound-and-true-p flymake-mode)
-      " | Flymake"))
-
-   (:eval
-    (propertize
-     " "
-     'display
-     '(space :align-to (- right 8))))
-
-   mode-line-mule-info
-
-   " "
-
-   display-time-string))
+;; Define the mode line structure (Cleaned & Segmented)
+(setq-default mode-line-format
+  '("%e "
+    mode-line-modified
+    " "
+    mode-line-buffer-identification
+    " "
+    mode-line-position
+    " "
+    vc-mode
+    " "
+    mode-line-modes
+    
+    ;; Dynamic status indicators
+    (:eval (and (bound-and-true-p eglot--managed-mode) " | LSP"))
+    (:eval (and (bound-and-true-p flymake-mode) " | Flymake"))
+    
+    ;; Right-align the clock segment perfectly
+    (:eval (propertize " " 'display '(space :align-to (- right 9))))
+    
+    ;; Segmented Time Display Block
+    (:eval (and display-time-string 
+                (propertize (concat " 🕒 " (string-trim display-time-string) " ")
+                            'face '(:weight bold))))))
 
 ;;; VISUAL POLISH
 

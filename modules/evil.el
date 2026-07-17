@@ -103,12 +103,24 @@
     "f r" #'consult-recent-file
     "f d" #'dired)
 
+  ;; ── Consult operations ─────────────────────────────────────
+  (suhas/leader
+    ;;"s r" #'consult-ripgrep     placed in global bindings below
+    ;;"f g" #'consult-fd
+    )
+    
+  ;; ── Search operations With Consult ─────────────────────────
+  (suhas/leader
+    "s s" #'consult-line       ; Search in current buffer
+    "s g" #'consult-grep       ; Grep project
+    "s f" #'consult-find)      ; Find file by name
+
   ;; ── Buffer operations ──────────────────────────────────────
   (suhas/leader
     "SPC" #'consult-buffer      ; SPC SPC = quick buffer switch
     "k"   #'kill-current-buffer ; SPC k = kill buffer
     "b i" #'ibuffer             ; SPC b i = buffer list
-    "b l" #'buffer-list)
+    "b l" #'buffer-list)        ; not working
   
 
   ;; ── Window operations ──────────────────────────────────────
@@ -124,19 +136,13 @@
     "w =" #'balance-windows
     "w r" #'suhas/rotate-windows)
 
-  ;; ── Search operations ──────────────────────────────────────
-  (suhas/leader
-    "s s" #'consult-line       ; Search in current buffer
-    "s g" #'consult-grep       ; Grep project
-    "s f" #'consult-find)      ; Find file by name
 
   ;; ── Config management ──────────────────────────────────────
   (suhas/leader
     "c e" #'suhas/open-config
     "c r" #'suhas/reload-config
     "c v" #'suhas/toggle-vim-mode  ; Toggle vim mode
-    "s r" #'consult-ripgrep
-    "c m" #'suhas/toggle-modeline-verbose)
+    )
 
   ;; ── Terminal ───────────────────────────────────────────────
   (suhas/leader
@@ -195,6 +201,8 @@
 ;; These are defined globally so they work everywhere.
 (global-set-key (kbd "C-;") #'suhas/prev-buffer)   ;; but this rotates through all teh code buffers
 (global-set-key (kbd "C-'") #'suhas/next-buffer)   ;; this does the toggle-last-buffer function instead of C-,
+(global-set-key (kbd "C-c f") #'consult-fd)
+(global-set-key (kbd "C-c g") #'consult-ripgrep) 
 
 ;;; BUFFER TOGGLE (C-' for last two)
 (global-set-key (kbd "C-,") #'suhas/toggle-last-buffer)
@@ -229,7 +237,7 @@
   (evil-set-initial-state 'magit-mode 'emacs)
   (evil-set-initial-state 'magit-status-mode 'emacs)
   (evil-set-initial-state 'magit-log-mode 'emacs)
-  (evil-set-initial-state 'eat-mode 'normal)
+  ;;(evil-set-initial-state 'eat-mode 'normal)
   (evil-set-initial-state 'help-mode 'emacs)
   (evil-set-initial-state 'info-mode 'emacs))
 

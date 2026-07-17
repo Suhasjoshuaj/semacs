@@ -1,28 +1,4 @@
 ;;; terminal.el --- Cross-platform terminal configuration -*- lexical-binding: t; -*-
-
-;;; ===========================================================================
-;;; TERMINAL
-;;; ===========================================================================
-;;
-;; Windows
-;; ---------
-;; We intentionally use `shell` instead of `eat`.
-;;
-;; Why?
-;;
-;; `eat` requires a real PTY backend.
-;; Native Windows Emacs does not provide one.
-;;
-;; `shell` uses Comint (pipes), which works reliably with Git Bash.
-;;
-;;
-;; Linux
-;; -----
-;; Use Eat because it gives a real terminal emulator with full ANSI,
-;; mouse support, shell integration, etc.
-;;
-;;; ===========================================================================
-
 (if suhas/windows-p
 
     ;; =======================================================================
@@ -31,24 +7,30 @@
 
     (progn
 
+      (use-package ghostel
+        :ensure t
+        :commands ghostel)
+
+      (use-package evil-ghostel
+        :ensure t
+        :after (ghostel evil)
+        :hook (ghostel-mode . evil-ghostel-mode))
+
       (let* ((git-root "C:/Program Files/Git")
              (usr-bin (concat git-root "/usr/bin"))
              (mingw-bin (concat git-root "/mingw64/bin"))
              (bash (concat usr-bin "/bash.exe")))
 
         ;; ------------------------------------------------------------
-        ;; Configure Bash
+        ;; Configure Bash for ghostel
         ;; ------------------------------------------------------------
 
-        (setq shell-file-name bash)
-        (setq explicit-shell-file-name bash)
+        ;; List form: executable + args. Long options before short ones
+        ;; (bash rejects long options that follow short ones) --
+        ;; "--login" before "-i" already satisfies this.
+        (setq ghostel-shell (list bash "--login" "-i"))
 
-        ;; Start as an interactive login shell.
-        (setq explicit-bash-args
-              '("--login" "-i"))
-
-        ;; Used by shell-command, async-shell-command, etc.
-        (setq shell-command-switch "-lc")
+        (setq ghostel-kill-buffer-on-exit t)
 
         ;; ------------------------------------------------------------
         ;; Git Bash environment
@@ -92,11 +74,13 @@
       ;; ------------------------------------------------------------
 
       (defun suhas/open-terminal ()
-        "Open Git Bash in a bottom split."
+        "Open Git Bash (via ghostel) in a bottom split."
 
         (interactive)
 
-        (let ((buf (get-buffer "*shell*")))
+        (require 'ghostel)
+
+        (let ((buf (get-buffer ghostel-buffer-name)))
 
           (if (and buf
                    (get-buffer-window buf))
@@ -104,13 +88,14 @@
               (select-window
                (get-buffer-window buf))
 
-            (split-window-below 15)
+            ;;(split-window-right 100)
+            (split-window-below 25)
 
             (other-window 1)
 
             (if buf
                 (switch-to-buffer buf)
-              (shell)))))
+              (ghostel)))))
 
       (defun suhas/close-terminal ()
         "Close terminal window."
@@ -156,7 +141,8 @@
             (select-window
              (get-buffer-window buf))
 
-          (split-window-below 15)
+          ;;(split-window-right 100)
+          (split-window-below 30)
 
           (other-window 1)
 

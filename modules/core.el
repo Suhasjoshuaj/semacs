@@ -134,6 +134,10 @@
 (setq undo-limit (* 10 1024 1024)           ; 10MB
       undo-strong-limit (* 15 1024 1024))   ; 15MB
 
+;; CLipboard sense
+(setq select-enable-clipboard t)
+(setq select-enable-primary t)
+
 ;;; ============================================================
 ;;; SCROLLING — Smooth and predictable
 ;;; ============================================================
