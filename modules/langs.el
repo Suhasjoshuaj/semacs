@@ -12,11 +12,6 @@
   :custom
   (js-indent-level 2))
 
-(use-package rust-ts-mode
-  :ensure nil
-  :mode ("\\.rs\\'" . rust-ts-mode)
-  :custom
-  (rust-ts-mode-indent-offset 4))
 
 (add-hook 'prog-mode-hook
           (lambda ()

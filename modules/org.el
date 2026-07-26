@@ -88,7 +88,7 @@
 (use-package org-superstar
   :hook (org-mode . org-superstar-mode)
   :custom
-  (org-superstar-headline-bullets-list '("◉" "○" "✸" "✿")))
+  (org-superstar-headline-bullets-list '("●" "◉" "◎" "○" "✸" " ▶")))
 
 ;;; ============================================================
 ;;; 3. EVIL + ORG KEYBINDINGS

@@ -100,6 +100,7 @@
   ([remap switch-to-buffer] . consult-buffer)
   ([remap goto-line] . consult-goto-line)
   ([remap imenu] . consult-imenu)
+
   :custom
   ;; Preview candidates as you navigate, but debounced.
   ;; 'any with no debounce re-renders (opens/highlights) a file on every
@@ -113,7 +114,21 @@
   (consult-project-function
    (lambda (_)
      (when-let (project (project-current))
-       (project-root project)))))
+       (project-root project))))
+
+  :config
+  ;; Hide noisy internal buffers from `consult-buffer'.
+  ;; This does NOT kill or disable them.
+  ;; *scratch* remains visible.
+  (dolist (regexp '("\\`\\*Messages\\*\\'"
+                    "\\`\\*Warnings\\*\\'"
+                    "\\`\\*EGLOT.*\\*\\'"
+                    "\\`\\*eglot.*\\*\\'"
+                    "\\`\\*Flymake.*\\*\\'"
+                    "\\`\\*Echo Area.*\\*\\'"
+                    "\\` \\*Minibuf-.*\\*\\'"))
+    (add-to-list 'consult-buffer-filter regexp)))
+
 
 ;; Give Windows pipes more breathing room (default is small, causes exactly this error)
 (when (eq system-type 'windows-nt)

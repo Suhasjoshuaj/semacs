@@ -77,6 +77,7 @@
 ;; ESC quits everything (minibuffer, visual mode, etc).
 ;; This is universal and expected.
 (global-set-key (kbd "<escape>") #'keyboard-escape-quit)
+;;(global-set-key (kbd "M-o") #'other-window)                           -- fix the binding. ( only goes to lower buffer but not rotating like C-x o)
 
 ;;; ============================================================
 ;;; GENERAL.EL — Leader key setup
@@ -127,8 +128,8 @@
   (suhas/leader
     "w v" #'evil-window-vsplit
     "w s" #'evil-window-split
-    "w k" #'evil-window-up
-    "w j" #'evil-window-down
+    "w w" #'evil-window-up
+    "j j" #'evil-window-down
     "w h" #'evil-window-left
     "w l" #'evil-window-right
     "w q" #'evil-window-delete
@@ -142,13 +143,18 @@
     "c e" #'suhas/open-config
     "c r" #'suhas/reload-config
     "c v" #'suhas/toggle-vim-mode  ; Toggle vim mode
+    "l w" #'suhas/toggle-line-wrap ; Toggle line wrapping
     )
 
   ;; ── Terminal ───────────────────────────────────────────────
   (suhas/leader
-    "t t" #'suhas/open-terminal  ; Open terminal (defined in terminal.el)
-    "t k" #'suhas/close-terminal)
-
+    "t t" #'suhas/open-terminal
+    "t n" #'suhas/terminal-create-named
+    "t s" #'suhas/terminal-switch
+    "t r" #'suhas/terminal-rename
+    "t k" #'suhas/terminal-kill
+    "t K" #'suhas/terminal-kill-all)
+  
   ;; ── LSP / Errors ───────────────────────────────────────────
   (suhas/leader
     "e n" #'flymake-goto-next-error
@@ -199,8 +205,8 @@
 
 ;; Rotate through buffers (smart buffer navigation).
 ;; These are defined globally so they work everywhere.
-(global-set-key (kbd "C-;") #'suhas/prev-buffer)   ;; but this rotates through all teh code buffers
-(global-set-key (kbd "C-'") #'suhas/next-buffer)   ;; this does the toggle-last-buffer function instead of C-,
+(global-set-key (kbd "C-'") #'suhas/prev-buffer)   ;; but this rotates through all teh code buffers
+(global-set-key (kbd "C-;") #'suhas/next-buffer)   ;; this does the toggle-last-buffer function instead of C-,
 (global-set-key (kbd "C-c f") #'consult-fd)
 (global-set-key (kbd "C-c g") #'consult-ripgrep) 
 
@@ -245,7 +251,7 @@
   (define-key dired-mode-map (kbd "j") #'dired-next-line)
   (define-key dired-mode-map (kbd "k") #'dired-previous-line)
   (define-key dired-mode-map (kbd "h") #'dired-up-directory)
-  (define-key dired-mode-map (kbd "l") #'dired-find-file)
+  ;;(define-key dired-mode-map (kbd "l") #'dired-find-file)
   (define-key dired-mode-map (kbd "v") #'dired-toggle-marks)
   (define-key dired-mode-map (kbd "d") #'dired-flag-file-deletion)
   (define-key dired-mode-map (kbd "x") #'dired-do-flagged-delete))

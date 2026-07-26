@@ -73,7 +73,7 @@
 
 (defconst suhas/themes
   '(misterioso modus-vivendi modus-operandi tango-dark wombat
-    deeper-blue wheatgrass gruber-darker))
+    deeper-blue wheatgrass gruber-darker modus-vivendi-tinted))
 
 (defconst suhas/theme-count (length suhas/themes))
 
@@ -123,45 +123,80 @@
      'custom-enabled-themes
      (list theme))))
 
-;;; --- ModeLine Configuration ---
+;;; MODELINE
 
-(column-number-mode 1)
-(size-indication-mode 1)
-
-;; Configure clock display safely
-(setq display-time-format "%H:%M"
-      display-time-24hr-format t
-      display-time-default-load-average nil)
+(setq eol-mnemonic-unix ""
+      eol-mnemonic-dos ""
+      eol-mnemonic-mac ""
+      eol-mnemonic-undecided "")
+;; Enable time display
 (display-time-mode 1)
 
-;; Define the mode line structure (Cleaned & Segmented)
-(setq-default mode-line-format
-  '("%e "
-    mode-line-modified
-    " "
-    mode-line-buffer-identification
-    " "
-    mode-line-position
-    " "
-    vc-mode
-    " "
-    mode-line-modes
-    
-    ;; Dynamic status indicators
-    (:eval (and (bound-and-true-p eglot--managed-mode) " | LSP"))
-    (:eval (and (bound-and-true-p flymake-mode) " | Flymake"))
-    
-    ;; Right-align the clock segment perfectly
-    (:eval (propertize " " 'display '(space :align-to (- right 9))))
-    
-    ;; Segmented Time Display Block
-    (:eval (and display-time-string 
-                (propertize (concat " 🕒 " (string-trim display-time-string) " ")
-                            'face '(:weight bold))))))
+;; Show only hours and minutes in 24-hour format
+(setq display-time-format "%H:%M")
+(setq display-time-default-load-average t) ; Hide load average
+(setq display-time-mail-string "")          ; Hide mail indicator
+
+
+;;(use-package mood-line
+;;  :ensure t
+;;  :custom
+;;
+;;  ;; Show the current project name.
+;;  (mood-line-show-project-name t)
+;;
+;;  ;; Show position through the current buffer.
+;;  (mood-line-show-percent-position t)
+;;
+;;  ;; Show encoding information when relevant.
+;;  (mood-line-show-encoding-information t)
+;;
+;;  :config
+;;  (mood-line-mode 1)
+;;
+;;  ;; Display current time in the modeline.
+;;  (setq display-time-format "%H:%M")
+;;  (setq display-time-default-load-average nil)
+;;  (display-time-mode 1))
+
+
+;;(column-number-mode 1)
+;;(size-indication-mode 1)
+;;
+;;;; Configure clock display safely
+;;(setq display-time-format "%H:%M"
+;;      display-time-24hr-format t
+;;      display-time-default-load-average nil)
+;;(display-time-mode 1)
+;;
+;;;; Define the mode line structure (Cleaned & Segmented)
+;;(setq-default mode-line-format
+;;  '("%e "
+;;    mode-line-modified
+;;    " "
+;;    mode-line-buffer-identification
+;;    " "
+;;    mode-line-position
+;;    " "
+;;    vc-mode
+;;    " "
+;;    mode-line-modes
+;;    
+;;    ;; Dynamic status indicators
+;;    (:eval (and (bound-and-true-p eglot--managed-mode) " | LSP"))
+;;    (:eval (and (bound-and-true-p flymake-mode) " | Flymake"))
+;;    
+;;    ;; Right-align the clock segment perfectly
+;;    (:eval (propertize " " 'display '(space :align-to (- right 9))))
+;;    
+;;    ;; Segmented Time Display Block
+;;    (:eval (and display-time-string 
+;;                (propertize (concat " 🕒 " (string-trim display-time-string) " ")
+;;                            'face '(:weight bold))))))
 
 ;;; VISUAL POLISH
 
-(global-hl-line-mode 1)
+(global-hl-line-mode 0)
 
 (setq truncate-lines t
       show-paren-delay 0
@@ -170,4 +205,12 @@
 (show-paren-mode 1)
 (blink-cursor-mode -1)
 
+;;; LINE WRAPPING (per-buffer toggle)
+
+(defun suhas/toggle-line-wrap ()
+  "Toggle visual-line-mode in the current buffer, with feedback."
+  (interactive)
+  (visual-line-mode 'toggle)
+  (message "Line wrap: %s" (if visual-line-mode "ON (wrapped, j/k move by visual line)"
+                              "OFF (truncated)")))
 (provide 'ui)
