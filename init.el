@@ -4,6 +4,9 @@
 
 (setq use-package-verbose t)
 
+;; Disable package signature verification (easiest fix)
+;; (setq package-check-signature nil)
+
 ;; Show startup time and package count
 (defun efs/display-startup-time ()
   (let ((package-count (cond

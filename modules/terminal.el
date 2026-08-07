@@ -159,7 +159,7 @@ not by buffer content, so it's safe to call before a terminal exists in it."
 
 (defun suhas/terminal--split! ()
   "Create the small bottom split and select it."
-  (let* ((desired (round (* (if suhas/windows-p 0.28 0.32) (frame-height))))
+  (let* ((desired (+ 3 (round (* (if suhas/windows-p 0.28 0.32) (frame-height)))))
          (room (- (window-height) window-min-height 1)))
     (cond
      ((>= room desired) (split-window-below (- desired)) (other-window 1))

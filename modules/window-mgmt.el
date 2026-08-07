@@ -1,5 +1,6 @@
 ;;; window-mgmt.el --- Tab-bar workspaces and window management
 
+;;; Tab-Bar package
 (use-package tab-bar
   :ensure nil
   :custom
@@ -44,9 +45,17 @@
 (global-set-key (kbd "C-x -") #'shrink-window)
 (global-set-key (kbd "C-x |") #'shrink-window-horizontally)
 
+;;; Project package
 (use-package project
   :ensure nil
   :custom
   (project-list-file (expand-file-name "projects" user-emacs-directory)))
 
+;;; Buffer isolation
+(use-package perspective
+  :ensure t
+  :custom
+  (persp-suppress-no-prefix-key-warning t)
+  :init
+  (persp-mode 1))
 ;;; window-mgmt.el ends here

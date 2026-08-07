@@ -28,17 +28,12 @@
 
 (dolist (hook '(python-mode-hook
                 js-mode-hook
-                typescript-ts-mode-hook
-                tsx-ts-mode-hook
-                jsx-ts-mode-hook
-                rust-ts-mode-hook
                 rust-mode-hook
                 c-mode-hook
                 c++-mode-hook
-                c-ts-mode-hook
-                c++-ts-mode-hook
+                java-ts-mode-hook
                 java-mode-hook
-                java-ts-mode-hook))
+                ))
   (add-hook hook #'eglot-ensure))
 
 (use-package flymake

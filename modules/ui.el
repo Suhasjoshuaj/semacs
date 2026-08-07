@@ -73,7 +73,7 @@
 
 (defconst suhas/themes
   '(misterioso modus-vivendi modus-operandi tango-dark wombat
-    deeper-blue wheatgrass gruber-darker modus-vivendi-tinted))
+    deeper-blue wheatgrass gruber-darker modus-vivendi-tinted chyla-dark))
 
 (defconst suhas/theme-count (length suhas/themes))
 

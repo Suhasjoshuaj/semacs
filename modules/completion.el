@@ -82,6 +82,20 @@
   (marginalia-mode 1))
 
 ;;; ============================================================
+;;; RECENTF
+;;; ============================================================
+(use-package recentf
+  :ensure nil
+  :init
+  (recentf-mode 1)
+  :custom
+  (recentf-exclude '("/tmp/" "/ssh:" "\\.elc\\'" "\\.git/" "/node_modules/")))
+
+(use-package savehist
+  :ensure nil
+  :init
+  (savehist-mode 1))
+;;; ============================================================
 ;;; CONSULT — Enhanced search and navigation commands
 ;;; ============================================================
 
@@ -126,6 +140,7 @@
                     "\\`\\*eglot.*\\*\\'"
                     "\\`\\*Flymake.*\\*\\'"
                     "\\`\\*Echo Area.*\\*\\'"
+                    "\\`\\*Compile-Log*\\*\\'"
                     "\\` \\*Minibuf-.*\\*\\'"))
     (add-to-list 'consult-buffer-filter regexp)))
 
@@ -138,6 +153,15 @@
 ;; so rapid typing/backspacing doesn't pile up overlapping subprocesses
 (setq consult-async-input-debounce 0.4   ; wait longer after keystroke before restarting search
       consult-async-input-throttle 0.6)  ; minimum time between restarts
+
+;; Buffer isolation with perspective package
+(with-eval-after-load 'consult
+  (consult-customize consult-source-recent-file :hidden t :default nil)
+  (with-eval-after-load 'perspective
+    ;; Hide the default all-buffers source; perspective's scoped source
+    ;; becomes the default instead.
+    (consult-customize consult-source-buffer :hidden t :default nil)
+    (add-to-list 'consult-buffer-sources 'persp-consult-source)))
 
 
 ;;; ============================================================
@@ -189,8 +213,8 @@
   (cape-dabbrev-min-length 4)
   :config
   ;; Add file completion (M-: /path/to/fi<TAB> suggests files)
-  (add-to-list 'completion-at-point-functions #'cape-file)
+  (add-to-list 'completion-at-point-functions #'cape-file t)
   ;; Add dabbrev (completes words that appear elsewhere in the buffer)
-  (add-to-list 'completion-at-point-functions #'cape-dabbrev))
+  (add-to-list 'completion-at-point-functions #'cape-dabbrev t))
 
 ;;; completion.el ends here

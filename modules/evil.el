@@ -182,6 +182,16 @@
     "a l" #'tab-bar-switch-to-next-tab
     "a h" #'tab-bar-switch-to-prev-tab)
 
+  ;; ── Perspective (buffer-isolated workspaces) ────────────────
+  (suhas/leader
+    "v n" #'persp-switch            ; prompts for a name; creates if it doesn't exist
+    "v k" #'persp-kill
+    "v r" #'persp-rename
+    "v l" #'persp-next
+    "v h" #'persp-prev
+    "v b" #'persp-switch-to-buffer* ; buffer list scoped to current perspective only
+    "v a" #'persp-add-buffer)       ; pull an existing buffer into this perspective
+
   ;; ── Project operations ─────────────────────────────────────
   (suhas/leader
     "p f" #'project-find-file
@@ -214,13 +224,6 @@
 (global-set-key (kbd "C-,") #'suhas/toggle-last-buffer)
 
 ;; Workspace switching with Meta+1..9
-(defun suhas/switch-to-tab (n)
-  "Switch to workspace tab N."
-  (let* ((tabs (tab-bar-tabs))
-         (tab (nth (1- n) tabs)))
-    (when tab
-      (tab-bar-select-tab-by-name (alist-get 'name tab)))))
-
 (global-set-key (kbd "M-1") (lambda () (interactive) (suhas/switch-to-tab 1)))
 (global-set-key (kbd "M-2") (lambda () (interactive) (suhas/switch-to-tab 2)))
 (global-set-key (kbd "M-3") (lambda () (interactive) (suhas/switch-to-tab 3)))
@@ -238,7 +241,7 @@
 ;; These modes have their own keybindings. We don't force Vim on them.
 ;; They use Emacs defaults because Vim doesn't make sense there.
 (with-eval-after-load 'evil
-  (evil-set-initial-state 'dired-mode 'emacs)
+  (evil-set-initial-state 'dired-mode 'normal)
   (evil-set-initial-state 'ibuffer-mode 'emacs)
   (evil-set-initial-state 'magit-mode 'emacs)
   (evil-set-initial-state 'magit-status-mode 'emacs)
@@ -247,15 +250,15 @@
   (evil-set-initial-state 'help-mode 'emacs)
   (evil-set-initial-state 'info-mode 'emacs))
 
-(with-eval-after-load 'dired
-  (define-key dired-mode-map (kbd "j") #'dired-next-line)
-  (define-key dired-mode-map (kbd "k") #'dired-previous-line)
-  (define-key dired-mode-map (kbd "h") #'dired-up-directory)
-  ;;(define-key dired-mode-map (kbd "l") #'dired-find-file)
-  (define-key dired-mode-map (kbd "v") #'dired-toggle-marks)
-  (define-key dired-mode-map (kbd "d") #'dired-flag-file-deletion)
-  (define-key dired-mode-map (kbd "x") #'dired-do-flagged-delete))
- 
+;;(with-eval-after-load 'dired
+;;  (define-key dired-mode-map (kbd "j") #'dired-next-line)
+;;  (define-key dired-mode-map (kbd "k") #'dired-previous-line)
+;;  (define-key dired-mode-map (kbd "h") #'dired-up-directory)
+;;  ;;(define-key dired-mode-map (kbd "l") #'dired-find-file)
+;;  (define-key dired-mode-map (kbd "v") #'dired-toggle-marks)
+;;  (define-key dired-mode-map (kbd "d") #'dired-flag-file-deletion)
+;;  (define-key dired-mode-map (kbd "x") #'dired-do-flagged-delete))
+
 (with-eval-after-load 'ibuffer
   (define-key ibuffer-mode-map (kbd "j") #'ibuffer-forward-line)
   (define-key ibuffer-mode-map (kbd "k") #'ibuffer-backward-line)
