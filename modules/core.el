@@ -163,4 +163,45 @@
 ;; Prevents orphaned buffers.
 (setq kill-buffer-delete-windows t)
 
+;;; ============================================================
+;;; SHARED HELPERS — used by terminal.el, buffer-nav.el, window-mgmt.el
+;;; ============================================================
+;; These live here (loaded first) rather than in whichever module
+;; "owns" the concept, so no later module has to forward-reference a
+;; function from a module that hasn't loaded yet. terminal.el in
+;; particular loads before both buffer-nav.el and window-mgmt.el.
+
+(defun suhas/persp-buffer-p (buf)
+  "Non-nil if BUF belongs to the current perspective.
+Degrades to always-t when `persp-mode' isn't on, so callers don't need
+to special-case a perspective-less setup."
+  (if (bound-and-true-p persp-mode)
+      (persp-is-current-buffer buf)
+    t))
+
+(defun suhas/mru-step (pool direction &optional skip-p)
+  "Step to the next/previous buffer in POOL relative to `current-buffer'.
+
+Looks at buffer-list order (most-recently-used first), so repeated
+calls in the same DIRECTION ('next or 'prev) walk POOL like Alt-Tab
+rather than looping between the same two buffers: each call finds
+where `current-buffer' now sits and steps one further.
+
+SKIP-P, if given, is called with each candidate buffer and should
+return non-nil to skip it. Falls back to `current-buffer' if nothing
+in POOL qualifies."
+  (let ((pos (seq-position pool (current-buffer))))
+    (if (not pos)
+        (or (seq-find (lambda (b) (not (and skip-p (funcall skip-p b)))) pool)
+            (current-buffer))
+      (let* ((remaining (if (eq direction 'next)
+                             (nthcdr (1+ pos) pool)
+                           (reverse (take pos pool))))
+             (wrapped (if (eq direction 'next)
+                          (take (1+ pos) pool)
+                        (reverse (nthcdr pos pool))))
+             (search-list (append remaining wrapped)))
+        (or (seq-find (lambda (b) (not (and skip-p (funcall skip-p b)))) search-list)
+            (current-buffer))))))
+
 ;;; core.el ends here

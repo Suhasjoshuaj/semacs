@@ -56,6 +56,20 @@
 ;; Enable Evil's general integration (for dired, help-mode, etc).
 (setq evil-want-integration t)
 
+;; evil-collection gives whole modes (dired, ibuffer, magit, ...) a
+;; complete, maintained set of vim-native bindings instead of leaving
+;; evil's normal-state map to shadow their own keys. It needs the two
+;; variables above set *before* evil loads, which they already are.
+;;
+;; Scoped to just the modes we've actually tried, on purpose:
+;; `(evil-collection-init)' with no args pulls in every mode it knows,
+;; which is a lot more surface area (and things-that-can-surprise-you)
+;; than we want right now. Add more symbols here as you adopt them.
+(use-package evil-collection
+  :after evil
+  :config
+  (evil-collection-init '(dired ibuffer)))
+
 ;; C-u scrolls up (Vim convention), not universal-argument.
 (setq evil-want-C-u-scroll t)
 
@@ -151,6 +165,8 @@
     "t t" #'suhas/open-terminal
     "t n" #'suhas/terminal-create-named
     "t s" #'suhas/terminal-switch
+    "t l" #'suhas/terminal-next
+    "t h" #'suhas/terminal-prev
     "t r" #'suhas/terminal-rename
     "t k" #'suhas/terminal-kill
     "t K" #'suhas/terminal-kill-all)
@@ -201,7 +217,6 @@
     "p b" #'project-switch-to-buffer
     "p d" #'project-dired
     "p k" #'project-kill-buffers)
-
   ;; ── MAGIT ──────────────────────────────────────────────────
   (suhas/leader "g s" #'magit-status "g l" #'magit-log "g b" #'magit-blame)
 
@@ -240,31 +255,18 @@
 
 ;; These modes have their own keybindings. We don't force Vim on them.
 ;; They use Emacs defaults because Vim doesn't make sense there.
+;;
+;; dired and ibuffer are handled by evil-collection instead (see the
+;; EVIL CONFIGURATION section above) -- it sets ibuffer-mode's initial
+;; state to normal itself, so we don't touch it here.
 (with-eval-after-load 'evil
   (evil-set-initial-state 'dired-mode 'normal)
-  (evil-set-initial-state 'ibuffer-mode 'emacs)
   (evil-set-initial-state 'magit-mode 'emacs)
   (evil-set-initial-state 'magit-status-mode 'emacs)
   (evil-set-initial-state 'magit-log-mode 'emacs)
   ;;(evil-set-initial-state 'eat-mode 'normal)
   (evil-set-initial-state 'help-mode 'emacs)
   (evil-set-initial-state 'info-mode 'emacs))
-
-;;(with-eval-after-load 'dired
-;;  (define-key dired-mode-map (kbd "j") #'dired-next-line)
-;;  (define-key dired-mode-map (kbd "k") #'dired-previous-line)
-;;  (define-key dired-mode-map (kbd "h") #'dired-up-directory)
-;;  ;;(define-key dired-mode-map (kbd "l") #'dired-find-file)
-;;  (define-key dired-mode-map (kbd "v") #'dired-toggle-marks)
-;;  (define-key dired-mode-map (kbd "d") #'dired-flag-file-deletion)
-;;  (define-key dired-mode-map (kbd "x") #'dired-do-flagged-delete))
-
-(with-eval-after-load 'ibuffer
-  (define-key ibuffer-mode-map (kbd "j") #'ibuffer-forward-line)
-  (define-key ibuffer-mode-map (kbd "k") #'ibuffer-backward-line)
-  (define-key ibuffer-mode-map (kbd "RET") #'ibuffer-visit-buffer)
-  (define-key ibuffer-mode-map (kbd "d") #'ibuffer-mark-for-delete)
-  (define-key ibuffer-mode-map (kbd "x") #'ibuffer-do-delete))
 
 
 ;;; ============================================================

@@ -161,7 +161,41 @@
     ;; Hide the default all-buffers source; perspective's scoped source
     ;; becomes the default instead.
     (consult-customize consult-source-buffer :hidden t :default nil)
-    (add-to-list 'consult-buffer-sources 'persp-consult-source)))
+
+    ;; perspective.el's own `persp-consult-source' lists every buffer that
+    ;; belongs to the current perspective -- terminals included. That's
+    ;; the thing we're fixing: redefine its :items to exclude terminal
+    ;; buffers, the same way we already exclude *Messages*/*Warnings*
+    ;; above, just perspective-scoped instead of global.
+    (setq persp-consult-source
+          (plist-put persp-consult-source :items
+                     (lambda ()
+                       (consult--buffer-query
+                        :sort 'visibility
+                        :predicate (lambda (buf)
+                                     (and (suhas/persp-buffer-p buf)
+                                          (not (suhas/terminal-buffer-p buf))))
+                        :as #'buffer-name))))
+
+    (add-to-list 'consult-buffer-sources 'persp-consult-source)
+
+    ;; Terminals get their own source: hidden by default, revealed only
+    ;; when you narrow with `t' -- mirrors how consult-source-recent-file
+    ;; is hidden behind `f'. Scoped to the current perspective, matching
+    ;; persp-consult-source above.
+    (defvar consult-source-persp-terminal
+      `( :name     "Terminal"
+         :narrow   ?t
+         :hidden   t
+         :default  nil
+         :category buffer
+         :face     consult-buffer
+         :state    ,#'consult--buffer-state
+         :items
+         ,(lambda () (mapcar #'buffer-name (suhas/persp-terminal-buffers))))
+      "Perspective-scoped terminal buffers, hidden until narrowed with `t'.")
+
+    (add-to-list 'consult-buffer-sources 'consult-source-persp-terminal t)))
 
 
 ;;; ============================================================

@@ -17,23 +17,11 @@
     nil))
 
 (defun suhas/get-next-buffer (direction)
-  "Get next/previous code buffer, skipping special buffers."
-  (let* ((all-buffers (buffer-list))
-         (current-buf (current-buffer))
-         (current-pos (seq-position all-buffers current-buf)))
-    (if (not current-pos)
-        current-buf
-      (let* ((remaining (if (eq direction 'next)
-                            (nthcdr (1+ current-pos) all-buffers)
-                          (reverse (take current-pos all-buffers))))
-             (wrapped (if (eq direction 'next)
-                          (take (1+ current-pos) all-buffers)
-                        (reverse (nthcdr current-pos all-buffers))))
-             (search-list (append remaining wrapped)))
-        (or (seq-find (lambda (buf)
-                        (not (suhas/should-skip-buffer-p (buffer-name buf))))
-                      search-list)
-            current-buf)))))
+  "Get next/previous code buffer: skips special buffers, and only
+considers buffers that belong to the current perspective."
+  (suhas/mru-step (seq-filter #'suhas/persp-buffer-p (buffer-list))
+                   direction
+                   (lambda (buf) (suhas/should-skip-buffer-p (buffer-name buf)))))
 
 (defun suhas/next-buffer () (interactive)
   "Cycle to next code buffer (C-;). Tracks last buffer for toggle."

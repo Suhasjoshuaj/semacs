@@ -151,6 +151,13 @@ No cached list to go stale -- `buffer-list' already tracks MRU order,
 we just filter it on demand."
   (seq-filter #'suhas/terminal-buffer-p (buffer-list)))
 
+(defun suhas/persp-terminal-buffers ()
+  "This perspective's live terminal buffers, most-recently-used first.
+Everything below that shows, switches, or rotates terminals uses this,
+never `suhas/terminal-buffers' directly -- terminals stay put in the
+perspective they were created in."
+  (seq-filter #'suhas/persp-buffer-p (suhas/terminal-buffers)))
+
 (defun suhas/terminal-window ()
   "Window reserved for terminals, identified by a tag set at creation --
 not by buffer content, so it's safe to call before a terminal exists in it."
@@ -186,7 +193,7 @@ was on screen before the collapse."
      (collapsed
       (let ((term-buf (window-buffer win))
             (other-buf (or (seq-find (lambda (b) (not (suhas/terminal-buffer-p b)))
-                                      (buffer-list))
+                                      (seq-filter #'suhas/persp-buffer-p (buffer-list)))
                            (get-buffer-create "*scratch*"))))
         (select-window win)
         (set-window-parameter win 'suhas-terminal-slot nil)
@@ -207,11 +214,14 @@ was on screen before the collapse."
     (rename-buffer (format "*term:%s*" name) t)))
 
 (defun suhas/open-terminal ()
-  "SPC t t -- show the most recently used terminal, or create one."
+  "SPC t t -- show this perspective's most recently used terminal,
+or create a new one if this perspective doesn't have one yet.
+Never pulls in a terminal from another perspective; use
+`persp-switch-to-buffer' directly if you want that."
   (interactive)
   (suhas/terminal-ensure-window)
   (unless (suhas/terminal-buffer-p (window-buffer (selected-window)))
-    (let ((bufs (suhas/terminal-buffers)))
+    (let ((bufs (suhas/persp-terminal-buffers)))
       (if bufs
           (switch-to-buffer (car bufs)) ; car = most recently used, since buffer-list is MRU-ordered
         (suhas/terminal-spawn)))))
@@ -223,9 +233,11 @@ was on screen before the collapse."
     (suhas/terminal-spawn (unless (string-empty-p name) name))))
 
 (defun suhas/terminal-switch ()
-  "Pick a running terminal by name (Vertico-powered, since it's plain `completing-read')."
+  "SPC t s -- pick a terminal in the current perspective by name
+(Vertico-powered, since it's plain `completing-read'). Terminals in
+other perspectives are never listed here."
   (interactive)
-  (let ((bufs (suhas/terminal-buffers)))
+  (let ((bufs (suhas/persp-terminal-buffers)))
     (if (null bufs)
         (suhas/terminal-spawn)
       (let ((choice (completing-read "Terminal: " (mapcar #'buffer-name bufs) nil t)))
@@ -233,16 +245,39 @@ was on screen before the collapse."
         (switch-to-buffer choice)))))
 
 (defun suhas/terminal-kill-all ()
-  "Kill every terminal buffer and close the terminal window."
+  "Kill every terminal buffer in this perspective and close the
+terminal window. Terminals belonging to other perspectives are untouched."
   (interactive)
-  (let ((bufs (suhas/terminal-buffers)))
+  (let ((bufs (suhas/persp-terminal-buffers)))
     (if (null bufs)
-        (message "No terminals running")
+        (message "No terminals running in this perspective")
       (let ((kill-buffer-query-functions nil)) ; skip the per-buffer "process running, kill?" prompt
         (mapc #'kill-buffer bufs))
       (when (suhas/terminal-window)
         (delete-window (suhas/terminal-window)))
       (message "Killed %d terminal(s)" (length bufs)))))
+
+(defun suhas/terminal-rotate (direction)
+  "Cycle the terminal window through this perspective's terminal
+buffers, in DIRECTION ('next or 'prev). Same MRU-walk as code-buffer
+rotation (`suhas/mru-step'), just applied to the terminal pool instead."
+  (let ((bufs (suhas/persp-terminal-buffers))
+        (win (suhas/terminal-window)))
+    (cond
+     ((null bufs) (message "No terminals in this perspective"))
+     ((null win) (suhas/open-terminal))
+     (t (select-window win)
+        (switch-to-buffer (suhas/mru-step bufs direction))))))
+
+(defun suhas/terminal-next ()
+  "SPC t l -- cycle to the next terminal in this perspective."
+  (interactive)
+  (suhas/terminal-rotate 'next))
+
+(defun suhas/terminal-prev ()
+  "SPC t h -- cycle to the previous terminal in this perspective."
+  (interactive)
+  (suhas/terminal-rotate 'prev))
 
 (defun suhas/terminal--target ()
   "The terminal buffer to act on: current buffer if it's a terminal,
