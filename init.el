@@ -3,7 +3,7 @@
 ;;; All actual configuration lives in separate modules.
 
 (setq use-package-verbose t)
-
+(setq debug-on-error t)
 ;; Disable package signature verification (easiest fix)
 ;; (setq package-check-signature nil)
 

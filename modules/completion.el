@@ -215,7 +215,11 @@
   (corfu-auto-delay 0.2)   ; Wait 200ms after you stop typing
   (corfu-auto-prefix 2)    ; Only show popup after 2+ characters
   (corfu-cycle t)          ; Tab wraps around candidate list
-  (corfu-quit-no-match t)) ; Hide popup if no matches
+  (corfu-quit-no-match t)  ; Hide popup if no matches
+  :bind
+  (:map corfu-map
+        ("<return>" . nil)
+        ("RET" . nil)))
 ;; NOTE: if you notice popup lag specifically while Eglot is connected to a
 ;; slower LSP server (e.g. jdtls for Java), bump corfu-auto-prefix to 3 —
 ;; every keystroke past the prefix count sends a completion request to the

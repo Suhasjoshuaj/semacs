@@ -138,18 +138,15 @@
 (setq select-enable-clipboard t)
 (setq select-enable-primary t)
 
-;;; ============================================================
-;;; SCROLLING — Smooth and predictable
-;;; ============================================================
+;; Auto-insert the matching closing bracket/quote as you type the opener.
+(electric-pair-mode 1)
 
-;; Don't scroll the window wildly when you move the cursor.
-;; Keep 5 lines of context above/below the cursor at all times.
-(setq scroll-margin 5
-      scroll-conservatively 10000  ; Prefer moving point over scrolling window
-      scroll-step 1)
-
-;; Emacs 29+: Smooth pixel-level scrolling instead of line-at-a-time jumps.
-(pixel-scroll-precision-mode 1)
+;;; ============================================================
+;;; SCROLLING
+;;; ============================================================
+;; Scroll behavior lives in ui.el, not here -- it was duplicated in
+;; both files with different numbers, and since ui.el loads second it
+;; always won silently. One source of truth now.
 
 ;;; ============================================================
 ;;; HELP AND NAVIGATION

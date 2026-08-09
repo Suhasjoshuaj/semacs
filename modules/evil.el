@@ -61,14 +61,46 @@
 ;; evil's normal-state map to shadow their own keys. It needs the two
 ;; variables above set *before* evil loads, which they already are.
 ;;
-;; Scoped to just the modes we've actually tried, on purpose:
-;; `(evil-collection-init)' with no args pulls in every mode it knows,
-;; which is a lot more surface area (and things-that-can-surprise-you)
-;; than we want right now. Add more symbols here as you adopt them.
+;; Scoped to just the modes where you actually want the full mnemonic
+;; binding set (dired, ibuffer -- marking/deleting/wdired need this to
+;; work at all -- and compile, since you use it directly). Everything
+;; else gets a lighter touch below.
 (use-package evil-collection
   :after evil
   :config
-  (evil-collection-init '(dired ibuffer)))
+  (evil-collection-init '(dired ibuffer compile)))
+
+;; help, xref, and flymake diagnostics: you don't use these enough to
+;; want their full mnemonic binding set (gj/go/]]/etc.), just vim
+;; movement plus a working quit key. `evil-collection-set-readonly-bindings'
+;; is the one piece that's not optional -- evil's normal state claims
+;; `q' globally for macro recording, which would otherwise silently
+;; break "quit this buffer" the moment you switch these to normal
+;; state. Nothing else about these modes changes: RET on a link, TAB
+;; between buttons, all native functionality, untouched.
+(with-eval-after-load 'help-mode
+  (with-eval-after-load 'evil
+    (with-eval-after-load 'evil-collection
+      (evil-set-initial-state 'help-mode 'normal)
+      (evil-collection-set-readonly-bindings 'help-mode-map))))
+
+(with-eval-after-load 'xref
+  (with-eval-after-load 'evil
+    (with-eval-after-load 'evil-collection
+      (evil-set-initial-state 'xref--xref-buffer-mode 'normal)
+      (evil-collection-set-readonly-bindings 'xref--xref-buffer-mode-map)
+      (when (>= emacs-major-version 27)
+        (evil-set-initial-state 'xref--transient-buffer-mode 'normal)))))
+
+;; flymake-diagnostics-buffer-mode has no explicit evil-set-initial-state
+;; call -- it doesn't need one, evil's own default state is already
+;; 'normal for any major mode with no override, this just adds the
+;; quit-key fix.
+(with-eval-after-load 'flymake
+  (with-eval-after-load 'evil
+    (with-eval-after-load 'evil-collection
+      (evil-collection-set-readonly-bindings 'flymake-diagnostics-buffer-mode-map)
+      (evil-collection-set-readonly-bindings 'flymake-project-diagnostics-mode-map))))
 
 ;; C-u scrolls up (Vim convention), not universal-argument.
 (setq evil-want-C-u-scroll t)
@@ -134,17 +166,16 @@
   (suhas/leader
     "SPC" #'consult-buffer      ; SPC SPC = quick buffer switch
     "k"   #'kill-current-buffer ; SPC k = kill buffer
-    "b i" #'ibuffer             ; SPC b i = buffer list
-    "b l" #'buffer-list)        ; not working
+    "b i" #'ibuffer)            ; SPC b i = buffer list
   
 
   ;; ── Window operations ──────────────────────────────────────
   (suhas/leader
     "w v" #'evil-window-vsplit
     "w s" #'evil-window-split
-    "w w" #'evil-window-up
-    "j j" #'evil-window-down
     "w h" #'evil-window-left
+    "w j" #'evil-window-down
+    "w k" #'evil-window-up
     "w l" #'evil-window-right
     "w q" #'evil-window-delete
     "w o" #'delete-other-windows
@@ -179,12 +210,24 @@
     "e a" #'eglot-code-actions
     "e r" #'eglot-rename
     "e f" #'eglot-format-buffer
-    "f o" #'formar-all-buffer)
+    "e o" #'format-all-buffer) ; non-LSP fallback formatter (black/prettier/clang-format/...)
 
 
   ;; ── Compile ────────────────────────────────────────────────
+  ;; "m c" starts a build; from then on you never have to switch into
+  ;; the *compilation* buffer to work through errors. next-error/
+  ;; previous-error track whichever compile/grep buffer ran most
+  ;; recently and jump straight to that location in your source file --
+  ;; that's the actual Emacs compile workflow, distinct from the gj/gk
+  ;; and ]]/[[ bindings evil-collection gives you for moving around
+  ;; *inside* the compilation buffer itself (see below).
   (suhas/leader
-    "m c" #'compile)  ; SPC m c = compile
+    "m c" #'compile             ; SPC m c = start a compile
+    "m r" #'recompile           ; SPC m r = re-run the last compile command
+    "m n" #'next-error          ; SPC m n = jump to next error, from anywhere
+    "m p" #'previous-error      ; SPC m p = jump to previous error, from anywhere
+    "m g" #'first-error         ; SPC m g = jump back to the first error
+    "m k" #'kill-compilation)   ; SPC m k = stop a running build
 
   ;; ── Theme ──────────────────────────────────────────────────
   (suhas/leader
@@ -253,19 +296,19 @@
 ;;; SPECIAL BUFFER STATES
 ;;; ============================================================
 
-;; These modes have their own keybindings. We don't force Vim on them.
-;; They use Emacs defaults because Vim doesn't make sense there.
+;; dired needs this explicitly -- unlike ibuffer/compile, evil-collection-dired
+;; does not set dired-mode's initial state itself.
 ;;
-;; dired and ibuffer are handled by evil-collection instead (see the
-;; EVIL CONFIGURATION section above) -- it sets ibuffer-mode's initial
-;; state to normal itself, so we don't touch it here.
+;; compilation is handled by evil-collection (see EVIL CONFIGURATION
+;; above); help and xref set their own initial state in their
+;; respective with-eval-after-load blocks up there too. Nothing left
+;; to do for any of those here.
 (with-eval-after-load 'evil
   (evil-set-initial-state 'dired-mode 'normal)
   (evil-set-initial-state 'magit-mode 'emacs)
   (evil-set-initial-state 'magit-status-mode 'emacs)
   (evil-set-initial-state 'magit-log-mode 'emacs)
   ;;(evil-set-initial-state 'eat-mode 'normal)
-  (evil-set-initial-state 'help-mode 'emacs)
   (evil-set-initial-state 'info-mode 'emacs))
 
 
