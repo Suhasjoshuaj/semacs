@@ -1,6 +1,6 @@
 ;;; window-mgmt.el --- Tab-bar workspaces and window management
 
-;;; Tab-Bar package
+;; Tab-Bar package
 (use-package tab-bar
   :ensure nil
   :custom

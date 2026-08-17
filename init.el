@@ -3,9 +3,9 @@
 ;;; All actual configuration lives in separate modules.
 
 (setq use-package-verbose t)
-(setq debug-on-error t)
+;;(setq debug-on-error t)
 ;; Disable package signature verification (easiest fix)
-;; (setq package-check-signature nil)
+(setq package-check-signature nil)
 
 ;; Show startup time and package count
 (defun efs/display-startup-time ()
@@ -84,7 +84,6 @@
 
 ;; 10. COMPILE — Compile command bindings and setup.
 (suhas/load-module "compile")
-
 
 (suhas/load-module "formatter")
 (suhas/load-module "magit")

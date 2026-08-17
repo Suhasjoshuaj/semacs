@@ -59,3 +59,10 @@ local-*.el
 *-local.el
 
 # Compiled packages directory
+.cache/
+eshell/
+history
+org-roam.db
+projects
+recentf
+tramp

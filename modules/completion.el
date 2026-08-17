@@ -158,31 +158,28 @@
 (with-eval-after-load 'consult
   (consult-customize consult-source-recent-file :hidden t :default nil)
   (with-eval-after-load 'perspective
-    ;; Hide the default all-buffers source; perspective's scoped source
-    ;; becomes the default instead.
     (consult-customize consult-source-buffer :hidden t :default nil)
 
-    ;; perspective.el's own `persp-consult-source' lists every buffer that
-    ;; belongs to the current perspective -- terminals included. That's
-    ;; the thing we're fixing: redefine its :items to exclude terminal
-    ;; buffers, the same way we already exclude *Messages*/*Warnings*
-    ;; above, just perspective-scoped instead of global.
-    (setq persp-consult-source
-          (plist-put persp-consult-source :items
-                     (lambda ()
-                       (consult--buffer-query
-                        :sort 'visibility
-                        :predicate (lambda (buf)
-                                     (and (suhas/persp-buffer-p buf)
-                                          (not (suhas/terminal-buffer-p buf))))
-                        :as #'buffer-name))))
+    ;; Define our own version outright instead of patching perspective's
+    ;; internal plist — avoids racing perspective.el's own consult hook.
+    (defvar persp-consult-source
+      (list :name     "Perspective"
+            :narrow   ?s
+            :category 'buffer
+            :state    #'consult--buffer-state
+            :history  'buffer-name-history
+            :default  t
+            :items
+            (lambda ()
+              (consult--buffer-query
+               :sort 'visibility
+               :predicate (lambda (buf)
+                            (and (suhas/persp-buffer-p buf)
+                                 (not (suhas/terminal-buffer-p buf))))
+               :as #'buffer-name))))
 
     (add-to-list 'consult-buffer-sources 'persp-consult-source)
 
-    ;; Terminals get their own source: hidden by default, revealed only
-    ;; when you narrow with `t' -- mirrors how consult-source-recent-file
-    ;; is hidden behind `f'. Scoped to the current perspective, matching
-    ;; persp-consult-source above.
     (defvar consult-source-persp-terminal
       `( :name     "Terminal"
          :narrow   ?t

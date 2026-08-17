@@ -1,4 +1,4 @@
-;;; evil.el --- Vim layer, toggleable, with leader key bindings
+;;; evil.el --- Vim layer, toggleable, with leader key bindings  -*- lexical-binding: t; -*-
 
 ;;; ============================================================
 ;;; EMACS/VIM MODE TOGGLE & EVIL SETUP
@@ -264,7 +264,12 @@
   (suhas/leader "g s" #'magit-status "g l" #'magit-log "g b" #'magit-blame)
 
   ;; ── ORG ──────────────────────────────────────────────────--
-  (suhas/leader "o a" #'org-agenda "o c" #'org-capture "o l" #'org-store-link))
+  (suhas/leader "o a" #'org-agenda "o c" #'org-capture "o l" #'org-store-link)
+
+  ;; ── Treemacs ────────────────────────────────────────────────
+  ;;(suhas/leader "p t" #'treemacs)
+  )
+
 
 
 ;;; ============================================================
