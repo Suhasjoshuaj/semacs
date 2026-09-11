@@ -1,4 +1,4 @@
-;;; init.el --- Entry point. Loads modules in dependency order.
+;;; init.el --- Entry point. Loads modules in dependency order.  -*- lexical-binding: t; -*-
 ;;; NO configuration lives here. This file is a table of contents.
 ;;; All actual configuration lives in separate modules.
 

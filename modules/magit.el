@@ -1,4 +1,4 @@
-;;; magit.el --- Git integration (optional)
+;;; magit.el --- Git integration (optional)  ... -*- lexical-binding: t; -*-
  
 ;; Note: Magit requires installation from MELPA.
 ;; If you can't install it, simply don't use SPC g s

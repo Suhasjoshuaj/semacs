@@ -1,4 +1,4 @@
-;;; compile.el --- Compile command setup
+;;; compile.el --- Compile command setup  ... -*- lexical-binding: t; -*-
 
 (use-package compile
   :ensure nil

@@ -1,4 +1,4 @@
-;;; org.el --- Org-mode: notes, TODOs, agenda, and wiki-style cross-linking
+;;; org.el --- Org-mode: notes, TODOs, agenda, and wiki-style cross-linking  ... -*- lexical-binding: t; -*-
 ;;;
 ;;; This file is written to be READ, not just loaded. Every section explains
 ;;; the underlying Org concept before the code that implements it. If you
@@ -88,7 +88,7 @@
 (use-package org-superstar
   :hook (org-mode . org-superstar-mode)
   :custom
-  (org-superstar-headline-bullets-list '("●" "◉" "◎" "○" "✸" " ▶")))
+  (org-superstar-headline-bullets-list '("●" "◉" "◎" "○" "▶")))
 
 ;;; ============================================================
 ;;; 3. EVIL + ORG KEYBINDINGS

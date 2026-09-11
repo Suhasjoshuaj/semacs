@@ -1,4 +1,4 @@
-;;; formatter.el --- Code formatting integration
+;;; formatter.el --- Code formatting integration  ... -*- lexical-binding: t; -*-
 
 (use-package format-all
   :commands format-all-buffer format-all-region

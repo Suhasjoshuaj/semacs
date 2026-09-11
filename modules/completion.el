@@ -1,4 +1,4 @@
-;;; completion.el --- Vertico, Marginalia, Consult, Corfu
+;;; completion.el --- Vertico, Marginalia, Consult, Corfu ... -*- lexical-binding: t; -*-
 ;;; Fast fuzzy completion in minibuffer (Vertico) and in-buffer (Corfu).
 ;;;
 ;;; How they work together:
@@ -194,6 +194,30 @@
 
     (add-to-list 'consult-buffer-sources 'consult-source-persp-terminal t)))
 
+;;; ============================================================
+;;; PROJECT-SCOPED FIND / GREP
+;;; ============================================================
+
+;; C-c f / C-c g already search from consult-project-function's root
+;; when called with a prefix arg (C-u C-c f). These two give the
+;; project-rooted behavior unconditionally, no prefix needed.
+
+(defun suhas/project-root ()
+  "Return the current project root, or `default-directory'."
+  (if-let ((project (project-current nil)))
+      (project-root project)
+    default-directory))
+
+(defun suhas/consult-project-find ()
+  "Fuzzy-find files from the current project root."
+  (interactive)
+  (consult-fd (suhas/project-root)))
+
+(defun suhas/consult-project-ripgrep ()
+  "Search file contents from the current project root."
+  (interactive)
+  (consult-ripgrep (suhas/project-root)))
+
 
 ;;; ============================================================
 ;;; CORFU — In-buffer code completion popup
@@ -222,13 +246,6 @@
 ;; every keystroke past the prefix count sends a completion request to the
 ;; server. Don't change this preemptively; only if you actually feel it.
 
-;; corfu-terminal: Makes corfu work in terminal Emacs (no GUI).
-;; Without this, completion renders as garbage in TTY mode.
-(use-package corfu-terminal
-  :after corfu
-  :config
-  (unless (display-graphic-p)
-    (corfu-terminal-mode 1)))
 
 ;;; ============================================================
 ;;; CAPE — Extra completion sources
@@ -252,4 +269,63 @@
   ;; Add dabbrev (completes words that appear elsewhere in the buffer)
   (add-to-list 'completion-at-point-functions #'cape-dabbrev t))
 
+
+;;; ============================================================
+;;; SPEEDBAR -- inbuilt filetree
+;;; ============================================================
+
+(defun suhas/speedbar-visit-in-place (orig-fn &rest args)
+  "Make speedbar visit files in the last real edit window, not its own dedicated pane."
+  (let ((target (or (get-mru-window nil nil t) (selected-window)))
+        (sb-buf (current-buffer)))
+    (select-window target)
+    (with-current-buffer sb-buf
+      (apply orig-fn args))))
+
+(advice-add 'speedbar-edit-line :around #'suhas/speedbar-visit-in-place)
+
+(use-package speedbar
+  :ensure nil
+  :commands (speedbar)
+  :config
+  (setq speedbar-prefer-window t)
+  (setq speedbar-use-images nil)
+
+  ;; Show files speedbar would otherwise hide (yaml, etc. with no tag support)
+  (setq speedbar-show-unknown-files t)
+  ;; Stop hiding dotfiles/dot-directories
+  (setq speedbar-directory-unshown-regexp "\\`\\'")
+
+  ;; Fix: mouse-1 was being translated to mouse-2 (follow-link), which
+  ;; fell through to Evil's global mouse-2 = paste-primary-selection binding.
+  (add-hook 'speedbar-mode-hook
+            (lambda () (setq-local mouse-1-click-follows-link nil)))
+
+  ;; Fix: force files to open in the real edit window instead of
+  ;; splitting, since speedbar's own dedicated window refuses them.
+  (defun suhas/speedbar-visit-in-place (orig-fn &rest args)
+    (let ((target (or (get-mru-window nil nil t) (selected-window)))
+          (sb-buf (current-buffer)))
+      (select-window target)
+      (with-current-buffer sb-buf
+        (apply orig-fn args))))
+  (advice-add 'speedbar-edit-line :around #'suhas/speedbar-visit-in-place)
+
+  ;; Single keyboard-only toggle: open / jump in / jump back out.
+  ;; (Bug was hardcoding "*SPEEDBAR*" — real buffer is internal;
+  ;; `speedbar-buffer` is the variable that always points to it.)
+  (defun suhas/toggle-speedbar-window-focus ()
+    "Toggle focus between the speedbar window and the previous window."
+    (interactive)
+    (let ((sb-win (and (buffer-live-p speedbar-buffer)
+                        (get-buffer-window speedbar-buffer))))
+      (cond
+       ((and sb-win (eq (selected-window) sb-win))
+        (select-window (get-mru-window nil nil t)))
+       (sb-win
+        (select-window sb-win))
+       (t
+        (speedbar 1)
+        (select-window (get-buffer-window speedbar-buffer))))))
+  (global-set-key (kbd "C-x l") #'suhas/toggle-speedbar-window-focus))
 ;;; completion.el ends here

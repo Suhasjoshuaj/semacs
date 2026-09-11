@@ -1,4 +1,4 @@
-;;; langs.el --- Per-language configuration
+;;; langs.el --- Per-language configuration  ... -*- lexical-binding: t; -*-
 
 (use-package python
   :ensure nil

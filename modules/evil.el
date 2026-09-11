@@ -68,7 +68,7 @@
 (use-package evil-collection
   :after evil
   :config
-  (evil-collection-init '(dired ibuffer compile)))
+  (evil-collection-init '(ibuffer compile speedbar)))
 
 ;; help, xref, and flymake diagnostics: you don't use these enough to
 ;; want their full mnemonic binding set (gj/go/]]/etc.), just vim
@@ -101,6 +101,18 @@
     (with-eval-after-load 'evil-collection
       (evil-collection-set-readonly-bindings 'flymake-diagnostics-buffer-mode-map)
       (evil-collection-set-readonly-bindings 'flymake-project-diagnostics-mode-map))))
+
+;; speedbar with evil collisions.
+(with-eval-after-load 'speedbar
+(with-eval-after-load 'evil-collection-speedbar
+  (evil-collection-define-key '(normal motion) 'speedbar-file-key-map
+    (kbd "SPC")            #'speedbar-toggle-line-expansion
+    "o"                    #'speedbar-toggle-line-expansion
+    "n"                    #'speedbar-next
+    "p"                    #'speedbar-prev
+    "q"                    (lambda () (interactive) (speedbar-window--close))
+    (kbd "<down-mouse-1>") #'mouse-drag-region
+    (kbd "<mouse-2>")      #'speedbar-click)))
 
 ;; C-u scrolls up (Vim convention), not universal-argument.
 (setq evil-want-C-u-scroll t)
@@ -158,9 +170,9 @@
     
   ;; ── Search operations With Consult ─────────────────────────
   (suhas/leader
-    "s s" #'consult-line       ; Search in current buffer
-    "s g" #'consult-grep       ; Grep project
-    "s f" #'consult-find)      ; Find file by name
+    "s s" #'consult-line                     ; Search in current buffer
+    "s g" #'suhas/consult-project-ripgrep    ; Grep project
+    "s f" #'suhas/consult-project-find)      ; Find file by name
 
   ;; ── Buffer operations ──────────────────────────────────────
   (suhas/leader
@@ -200,7 +212,8 @@
     "t h" #'suhas/terminal-prev
     "t r" #'suhas/terminal-rename
     "t k" #'suhas/terminal-kill
-    "t K" #'suhas/terminal-kill-all)
+    "t K" #'suhas/terminal-kill-all
+    "t p" #'suhas/terminal-set-position)
   
   ;; ── LSP / Errors ───────────────────────────────────────────
   (suhas/leader
@@ -280,8 +293,11 @@
 ;; These are defined globally so they work everywhere.
 (global-set-key (kbd "C-'") #'suhas/prev-buffer)   ;; but this rotates through all teh code buffers
 (global-set-key (kbd "C-;") #'suhas/next-buffer)   ;; this does the toggle-last-buffer function instead of C-,
-(global-set-key (kbd "C-c f") #'consult-fd)
-(global-set-key (kbd "C-c g") #'consult-ripgrep) 
+(global-set-key (kbd "C-c f") #'suhas/consult-project-find)
+(global-set-key (kbd "C-c g") #'suhas/consult-project-ripgrep)
+
+;; since i can't use the vim bind in emacs mode
+(global-set-key (kbd "C-c v") #'suhas/toggle-vim-mode)
 
 ;;; BUFFER TOGGLE (C-' for last two)
 (global-set-key (kbd "C-,") #'suhas/toggle-last-buffer)
@@ -309,13 +325,24 @@
 ;; respective with-eval-after-load blocks up there too. Nothing left
 ;; to do for any of those here.
 (with-eval-after-load 'evil
-  (evil-set-initial-state 'dired-mode 'normal)
+  (evil-set-initial-state 'dired-mode 'emacs)
   (evil-set-initial-state 'magit-mode 'emacs)
   (evil-set-initial-state 'magit-status-mode 'emacs)
   (evil-set-initial-state 'magit-log-mode 'emacs)
   ;;(evil-set-initial-state 'eat-mode 'normal)
   (evil-set-initial-state 'info-mode 'emacs))
 
+(with-eval-after-load 'dired
+  (define-prefix-command 'suhas/dired-leader-map)
+
+  (define-key dired-mode-map (kbd "SPC")
+    #'suhas/dired-leader-map)
+
+  (define-key suhas/dired-leader-map (kbd "k")
+    #'kill-current-buffer)
+
+  (define-key suhas/dired-leader-map (kbd "SPC")
+    #'consult-buffer))
 
 ;;; ============================================================
 ;;; VERTICO NAVIGATION ENHANCEMENTS

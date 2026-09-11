@@ -1,4 +1,4 @@
-;;; buffer-nav.el --- Smart buffer rotation and toggle
+;;; buffer-nav.el --- Smart buffer rotation and toggle  ... -*- lexical-binding: t; -*-
 
 (defvar suhas/buffer-skip-patterns
   '("^\\*"           ; Skip *buffers*

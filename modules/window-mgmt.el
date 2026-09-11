@@ -1,4 +1,4 @@
-;;; window-mgmt.el --- Tab-bar workspaces and window management
+;;; window-mgmt.el --- Tab-bar workspaces and window management  -*- lexical-binding: t; -*-
 
 ;; Tab-Bar package
 (use-package tab-bar

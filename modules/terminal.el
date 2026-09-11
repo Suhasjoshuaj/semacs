@@ -9,12 +9,30 @@
 
       (use-package ghostel
         :ensure t
-        :commands ghostel)
+        :commands ghostel
+        :custom
+        ;; Evil's visual state (v) activates the mark; isearch and
+        ;; minibuffer-exit move point off the live cursor. Ghostel's
+        ;; defaults treat any of those as "user wants to read/copy" and
+        ;; silently freeze the buffer into copy-mode -- a mode evil's
+        ;; own i/a/ESC don't know how to exit. nil keeps semi-char (live
+        ;; typing) active through all three; use `C-c C-t' / `C-x C-q'
+        ;; when you actually do want the frozen, selectable view.
+        (ghostel-mark-activation-input-mode nil)
+        (ghostel-mouse-drag-input-mode nil)
+        (ghostel-point-leave-input-mode nil))
 
       (use-package evil-ghostel
         :ensure t
         :after (ghostel evil)
-        :hook (ghostel-mode . evil-ghostel-mode))
+        :hook (ghostel-mode . evil-ghostel-mode)
+        :custom
+        ;; 'auto (the default): ESC -> normal state at a plain shell
+        ;; prompt (standard vim ESC/i/a/v), and ESC -> forwarded to the
+        ;; app while an alt-screen program (vim, less, htop) is running,
+        ;; so nested apps still work normally too. Left explicit here so
+        ;; it's obvious this was a deliberate choice, not an oversight.
+        (evil-ghostel-escape 'auto))
 
       (let* ((git-root "C:/Program Files/Git")
              (usr-bin (concat git-root "/usr/bin"))
@@ -69,32 +87,6 @@
         (set-language-environment "UTF-8")
         (prefer-coding-system 'utf-8-unix)))
 
-      ;; ------------------------------------------------------------
-      ;; Open terminal
-      ;; ------------------------------------------------------------
-
-;;      (defun suhas/open-terminal ()
-;;        "Open Git Bash (via ghostel) in a bottom split."
-;;        (interactive)
-;;        (require 'ghostel)
-;;        (let ((buf (get-buffer ghostel-buffer-name)))
-;;          (if (and buf
-;;                   (get-buffer-window buf))
-;;              (select-window
-;;               (get-buffer-window buf))
-;;
-;;            ;;(split-window-right 100)
-;;            (split-window-below 25)
-;;            (other-window 1)
-;;            (if buf
-;;                (switch-to-buffer buf)
-;;              (ghostel)))))
-;;
-;;      (defun suhas/close-terminal ()
-;;        "Close terminal window."
-;;        (interactive)
-;;        (delete-window)))
-
   ;; =======================================================================
   ;; Linux
   ;; =======================================================================
@@ -113,33 +105,23 @@
          (display-line-numbers-mode -1)
          (setq-local scroll-margin 0))))))
 
-;;    (defun suhas/open-terminal ()
-;;      (interactive)
-;;      (let ((buf (get-buffer "*eat*")))
-;;        (if (and buf
-;;                 (get-buffer-window buf))
-;;            (select-window
-;;             (get-buffer-window buf))
-;;          ;;(split-window-right 100)
-;;          (split-window-below 30)
-;;          (other-window 1)
-;;          (if buf
-;;              (switch-to-buffer buf)
-;;            (eat)))))
-;;
-;;    (defun suhas/close-terminal ()
-;;      (interactive) (delete-window))))
-
-;; ... (your existing Windows/Linux branches stay exactly as they are,
-;;      but delete suhas/open-terminal and suhas/close-terminal from
-;;      inside each branch — they're replaced below, unified) ...
-
 ;; ===========================================================================
 ;; Shared multi-terminal layer
 ;; ===========================================================================
 
 (defvar suhas/terminal-mode (if suhas/windows-p 'ghostel-mode 'eat-mode)
   "Major mode of the active terminal backend on this platform.")
+
+(defvar suhas/terminal-position 'below
+  "Where the terminal window is placed: `below' or `right'.
+Set via `suhas/terminal-set-position' (SPC t p), not by hand --
+that function also relocates an already-open terminal window.")
+
+(defvar suhas/terminal-height-fraction (if suhas/windows-p 0.28 0.32)
+  "Fraction of frame height the terminal gets when split below.")
+
+(defvar suhas/terminal-width-fraction 0.35
+  "Fraction of frame width the terminal gets when split right.")
 
 (defun suhas/terminal-buffer-p (buf)
   (and (buffer-live-p buf)
@@ -164,15 +146,46 @@ not by buffer content, so it's safe to call before a terminal exists in it."
   (seq-find (lambda (w) (window-parameter w 'suhas-terminal-slot))
             (window-list)))
 
-(defun suhas/terminal--split! ()
+(defun suhas/terminal--split-below! ()
   "Create the small bottom split and select it."
-  (let* ((desired (+ 3 (round (* (if suhas/windows-p 0.28 0.32) (frame-height)))))
+  (let* ((desired (+ 3 (round (* suhas/terminal-height-fraction (frame-height)))))
          (room (- (window-height) window-min-height 1)))
     (cond
      ((>= room desired) (split-window-below (- desired)) (other-window 1))
      ((> room 4)        (split-window-below (- room))    (other-window 1))
-     (t nil))
-    (set-window-parameter (selected-window) 'suhas-terminal-slot t)))
+     (t nil))))
+
+(defun suhas/terminal--split-right! ()
+  "Create the narrow right split and select it."
+  (let* ((desired (round (* suhas/terminal-width-fraction (frame-width))))
+         (room (- (window-width) window-min-width 1)))
+    (cond
+     ((>= room desired) (split-window-right (- desired)) (other-window 1))
+     ((> room 4)        (split-window-right (- room))    (other-window 1))
+     (t nil))))
+
+(defun suhas/terminal--split! ()
+  "Create the terminal split in `suhas/terminal-position' and select it."
+  (if (eq suhas/terminal-position 'right)
+      (suhas/terminal--split-right!)
+    (suhas/terminal--split-below!))
+  (set-window-parameter (selected-window) 'suhas-terminal-slot t))
+
+(defun suhas/terminal-set-position (&optional position)
+  "SPC t p -- choose whether the terminal splits `below' or `right'.
+If a terminal window is already open, it's relocated on the spot
+instead of waiting for the next `suhas/open-terminal' call."
+  (interactive
+   (list (intern (completing-read "Terminal position: " '("below" "right") nil t))))
+  (setq suhas/terminal-position position)
+  (let ((win (suhas/terminal-window)))
+    (when win
+      (let ((buf (window-buffer win)))
+        (set-window-parameter win 'suhas-terminal-slot nil)
+        (delete-window win)
+        (suhas/terminal--split!)
+        (switch-to-buffer buf))))
+  (message "Terminal now splits %s" position))
 
 (defun suhas/terminal-ensure-window ()
   "Ensure the terminal split exists and select it.

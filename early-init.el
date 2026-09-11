@@ -1,4 +1,4 @@
-;;; early-init.el --- Startup performance and GUI chrome removal
+;;; early-init.el --- Startup performance and GUI chrome removal  -*- lexical-binding: t; -*-
 ;;; This runs BEFORE the main init.el, before the frame even exists.
 ;;; Use this only for performance tweaks and disabling visual chrome.
 
@@ -47,5 +47,10 @@
 (add-hook 'emacs-startup-hook
           (lambda ()
             (setq file-name-handler-alist suhas--file-name-handler-alist)))
+
+;; Suppress warnings about missing lexical-binding cookies
+;; for emacs 31.1
+(setq warning-suppress-types '((lexical-binding)))
+(setq warning-suppress-types '((files missing-lexbind-cookie)))
 
 ;;; early-init.el ends here

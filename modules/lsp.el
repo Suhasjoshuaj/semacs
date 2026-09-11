@@ -1,4 +1,4 @@
-;;; lsp.el --- Eglot language server client
+;;; lsp.el --- Eglot language server client  ... -*- lexical-binding: t; -*- 
 
 (use-package eglot
   :ensure nil

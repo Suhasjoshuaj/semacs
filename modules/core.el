@@ -1,4 +1,4 @@
-;;; core.el --- Package manager and sane defaults
+;;; core.el --- Package manager and sane defaults  ... -*- lexical-binding: t; -*-
 ;;; This loads FIRST. Everything else depends on this.
 
 ;;; ---------------------------------------------------------------------------
