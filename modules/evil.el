@@ -48,29 +48,30 @@
 ;;; EVIL CONFIGURATION
 ;;; ============================================================
 
-;; Configure Evil BEFORE loading it. These variables control its behavior.
-
-;; Don't bind to every key globally. We'll use general.el for leader bindings.
-(setq evil-want-keybinding nil)
-
-;; Enable Evil's general integration (for dired, help-mode, etc).
-(setq evil-want-integration t)
+;; (evil-want-keybinding / evil-want-integration are set once, in the
+;; `use-package evil' :init above -- they were duplicated here.)
 
 ;; evil-collection gives whole modes (dired, ibuffer, magit, ...) a
 ;; complete, maintained set of vim-native bindings instead of leaving
 ;; evil's normal-state map to shadow their own keys. It needs the two
 ;; variables above set *before* evil loads, which they already are.
 ;;
-;; Scoped to just the modes where you actually want the full mnemonic
-;; binding set (dired, ibuffer -- marking/deleting/wdired need this to
-;; work at all -- and compile, since you use it directly). Everything
-;; else gets a lighter touch below.
+;; Scoped to the modes where you want the full vim-style binding set:
+;;   dired, ibuffer  marking/deleting/wdired need this to work at all
+;;   compile         you use it directly
+;;   magit           magit buffers now start in NORMAL state: j/k move,
+;;                   C-j/C-k hop between sections, s/u stage/unstage,
+;;                   x discard, c commit... and C-z flips the current
+;;                   magit buffer to plain Emacs state if you want magit's
+;;                   own keys (n/p, k) for a moment. See README.
+;;   xref            RET on a result works (evil's RET used to shadow it)
+;; Everything else gets a lighter touch below.
 (use-package evil-collection
   :after evil
   :config
-  (evil-collection-init '(ibuffer compile speedbar)))
+  (evil-collection-init '(ibuffer compile speedbar dired magit xref)))
 
-;; help, xref, and flymake diagnostics: you don't use these enough to
+;; help and flymake diagnostics: you don't use these enough to
 ;; want their full mnemonic binding set (gj/go/]]/etc.), just vim
 ;; movement plus a working quit key. `evil-collection-set-readonly-bindings'
 ;; is the one piece that's not optional -- evil's normal state claims
@@ -84,13 +85,9 @@
       (evil-set-initial-state 'help-mode 'normal)
       (evil-collection-set-readonly-bindings 'help-mode-map))))
 
-(with-eval-after-load 'xref
-  (with-eval-after-load 'evil
-    (with-eval-after-load 'evil-collection
-      (evil-set-initial-state 'xref--xref-buffer-mode 'normal)
-      (evil-collection-set-readonly-bindings 'xref--xref-buffer-mode-map)
-      (when (>= emacs-major-version 27)
-        (evil-set-initial-state 'xref--transient-buffer-mode 'normal)))))
+;; (The hand-rolled xref block is gone: evil-collection's xref module, in
+;; the init list above, does it properly, and M-. now uses consult-xref
+;; anyway -- see completion.el.)
 
 ;; flymake-diagnostics-buffer-mode has no explicit evil-set-initial-state
 ;; call -- it doesn't need one, evil's own default state is already
@@ -132,9 +129,24 @@
 ;;; ESCAPE KEY
 ;;; ============================================================
 
-;; ESC quits everything (minibuffer, visual mode, etc).
-;; This is universal and expected.
-(global-set-key (kbd "<escape>") #'keyboard-escape-quit)
+;; ESC quits everything (minibuffer, region, ...) -- but NOT by way of
+;; `keyboard-escape-quit'. That command's last resort is
+;; `delete-other-windows': in any buffer that is not in evil normal state
+;; (dired used to be one, Info/emacs-state buffers, vim-mode off) one
+;; stray ESC closed every other window, terminal included.
+(defun suhas/escape ()
+  "Quit the region / minibuffer / running command; never touches windows."
+  (interactive)
+  (cond ((region-active-p) (deactivate-mark))
+        ((> (minibuffer-depth) 0) (abort-recursive-edit))
+        (t (keyboard-quit))))
+(global-set-key (kbd "<escape>") #'suhas/escape)
+
+;; evil's normal state binds M-. to `evil-repeat-pop-next', which hid
+;; xref's jump-to-definition (the README said M-. worked: only in insert
+;; state). Free it so M-. works in every state; `gd' does the same job.
+(with-eval-after-load 'evil
+  (define-key evil-normal-state-map (kbd "M-.") nil))
 ;;(global-set-key (kbd "M-o") #'other-window)                           -- fix the binding. ( only goes to lower buffer but not rotating like C-x o)
 
 ;;; ============================================================
@@ -162,17 +174,13 @@
     "f r" #'consult-recent-file
     "f d" #'dired)
 
-  ;; ── Consult operations ─────────────────────────────────────
+  ;; ── Search (details: search.el) ────────────────────────────
   (suhas/leader
-    ;;"s r" #'consult-ripgrep     placed in global bindings below
-    ;;"f g" #'consult-fd
-    )
-    
-  ;; ── Search operations With Consult ─────────────────────────
-  (suhas/leader
-    "s s" #'consult-line                     ; Search in current buffer
-    "s g" #'suhas/consult-project-ripgrep    ; Grep project
-    "s f" #'suhas/consult-project-find)      ; Find file by name
+    "s s" #'consult-line               ; text in the current buffer
+    "s i" #'consult-imenu              ; jump to a function/class in this file
+    "s g" #'suhas/grep-project         ; text in the current project (rg)
+    "s G" #'suhas/grep-everywhere      ; text in ALL repos (rg)
+    "s f" #'suhas/find-file-everywhere); file by NAME in ALL repos (fd)
 
   ;; ── Buffer operations ──────────────────────────────────────
   (suhas/leader
@@ -219,7 +227,7 @@
   (suhas/leader
     "e n" #'flymake-goto-next-error
     "e p" #'flymake-goto-prev-error
-    "e l" #'flymake-show-buffer-diagnostics
+    "e l" #'consult-flymake            ; jumpable list with live preview
     "e a" #'eglot-code-actions
     "e r" #'eglot-rename
     "e f" #'eglot-format-buffer
@@ -265,22 +273,21 @@
     "v a" #'persp-add-buffer)       ; pull an existing buffer into this perspective
 
   ;; ── Project operations ─────────────────────────────────────
+  ;; (p g / p s -- project-find-regexp / project-search -- are gone:
+  ;; "s g" is the same job with ripgrep, a preview, and no *xref* buffer.)
   (suhas/leader
-    "p f" #'project-find-file
-    "p g" #'project-find-regexp
-    "p s" #'project-search
+    "p p" #'suhas/project-switch       ; any project (new repos auto-found)
+    "p f" #'project-find-file          ; fuzzy file in the current project
+    "p n" #'suhas/project-mark         ; mark a non-git folder as a project
     "p r" #'project-query-replace
     "p b" #'project-switch-to-buffer
     "p d" #'project-dired
     "p k" #'project-kill-buffers)
   ;; ── MAGIT ──────────────────────────────────────────────────
-  (suhas/leader "g s" #'magit-status "g l" #'magit-log "g b" #'magit-blame)
+  (suhas/leader "g s" #'magit-status "g l" #'magit-log "g b" #'magit-blame
+                "g r" #'magit-list-repositories)  ; overview of ALL your repos
 
-  ;; ── ORG ──────────────────────────────────────────────────--
-  (suhas/leader "o a" #'org-agenda "o c" #'org-capture "o l" #'org-store-link)
-
-  ;; ── Treemacs ────────────────────────────────────────────────
-  ;;(suhas/leader "p t" #'treemacs)
+  ;; (Org's SPC o ... bindings live in org.el.)
   )
 
 
@@ -291,15 +298,14 @@
 
 ;; Rotate through buffers (smart buffer navigation).
 ;; These are defined globally so they work everywhere.
-(global-set-key (kbd "C-'") #'suhas/prev-buffer)   ;; but this rotates through all teh code buffers
-(global-set-key (kbd "C-;") #'suhas/next-buffer)   ;; this does the toggle-last-buffer function instead of C-,
-(global-set-key (kbd "C-c f") #'suhas/consult-project-find)
-(global-set-key (kbd "C-c g") #'suhas/consult-project-ripgrep)
+(global-set-key (kbd "C-'") #'suhas/prev-buffer)   ; previous code buffer
+(global-set-key (kbd "C-;") #'suhas/next-buffer)   ; next code buffer
+;; (C-c f / C-c g are defined in search.el next to the commands they run.)
 
 ;; since i can't use the vim bind in emacs mode
 (global-set-key (kbd "C-c v") #'suhas/toggle-vim-mode)
 
-;;; BUFFER TOGGLE (C-' for last two)
+;;; BUFFER TOGGLE (C-, jumps between the last two buffers)
 (global-set-key (kbd "C-,") #'suhas/toggle-last-buffer)
 
 ;; Workspace switching with Meta+1..9
@@ -317,32 +323,29 @@
 ;;; SPECIAL BUFFER STATES
 ;;; ============================================================
 
-;; dired needs this explicitly -- unlike ibuffer/compile, evil-collection-dired
-;; does not set dired-mode's initial state itself.
+;; dired / magit / xref / ibuffer / compile all get their vim bindings AND
+;; their initial state from evil-collection (list above): dired is in
+;; normal state now, so the SPC leader works there and the hand-made
+;; dired-only mini leader is gone.
 ;;
-;; compilation is handled by evil-collection (see EVIL CONFIGURATION
-;; above); help and xref set their own initial state in their
-;; respective with-eval-after-load blocks up there too. Nothing left
-;; to do for any of those here.
+;; Info stays in emacs state (n/p/l/u/SPC are native Info keys). The mode
+;; is `Info-mode' with a capital I: the old `info-mode' is no mode at all,
+;; so that line never did anything.
 (with-eval-after-load 'evil
-  (evil-set-initial-state 'dired-mode 'emacs)
-  (evil-set-initial-state 'magit-mode 'emacs)
-  (evil-set-initial-state 'magit-status-mode 'emacs)
-  (evil-set-initial-state 'magit-log-mode 'emacs)
-  ;;(evil-set-initial-state 'eat-mode 'normal)
-  (evil-set-initial-state 'info-mode 'emacs))
+  (evil-set-initial-state 'dired-mode 'normal)
+  (evil-set-initial-state 'Info-mode 'emacs))
 
-(with-eval-after-load 'dired
-  (define-prefix-command 'suhas/dired-leader-map)
+;;; ============================================================
+;;; WHICH-KEY — shows what can follow SPC (or any prefix) after a pause
+;;; ============================================================
 
-  (define-key dired-mode-map (kbd "SPC")
-    #'suhas/dired-leader-map)
-
-  (define-key suhas/dired-leader-map (kbd "k")
-    #'kill-current-buffer)
-
-  (define-key suhas/dired-leader-map (kbd "SPC")
-    #'consult-buffer))
+;; Built in since Emacs 30 (installed from GNU ELPA on 29). With ~70
+;; leader bindings, this is how you stop having to remember them.
+(use-package which-key
+  :init
+  (which-key-mode 1)
+  :custom
+  (which-key-idle-delay 0.5))
 
 ;;; ============================================================
 ;;; VERTICO NAVIGATION ENHANCEMENTS

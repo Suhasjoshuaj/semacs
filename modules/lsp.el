@@ -10,7 +10,11 @@
    '(:documentHighlightProvider))
   (eglot-autoshutdown t)
   :config
-  (setq eglot-events-buffer-size 0))
+  ;; Don't keep a log of every JSON message (memory + speed). Eglot 1.17
+  ;; (Emacs 30+) replaced the `-size' variable with `-config'.
+  (if (boundp 'eglot-events-buffer-config)
+      (setq eglot-events-buffer-config '(:size 0 :format full))
+    (setq eglot-events-buffer-size 0)))
 
 ;; One entry per language server. Plain major modes only -- no -ts-mode
 ;; variants. Tree-sitter grammars are currently generated at ABI 15 by

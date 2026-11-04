@@ -6,11 +6,11 @@ locks/
 eln-cache/
 elpa/
 
-# Package management (elpaca)
-elpaca/
+# Package management (package.el -> elpa/ above) and package state
 tree-sitter/
 transient/
 fd/
+ghostel/
 
 # Compiled Elisp files
 *.elc
@@ -65,4 +65,5 @@ history
 org-roam.db
 projects
 recentf
+places
 tramp

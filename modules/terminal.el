@@ -1,116 +1,97 @@
-;;; terminal.el --- Cross-platform terminal configuration -*- lexical-binding: t; -*-
-(if suhas/windows-p
+;;; terminal.el --- ghostel terminal (Windows AND Linux) -*- lexical-binding: t; -*-
+;;;
+;;; One terminal backend on every OS: ghostel (libghostty). `eat' is gone.
+;;; Requirements: Emacs built with dynamic-module support (check:
+;;; (featurep 'modules) => t; Arch, Debian and Ubuntu Emacs all have it).
+;;; The first time you run SPC t t, ghostel offers to DOWNLOAD a prebuilt
+;;; native module (answer yes; no compiler/zig needed). It is kept in
+;;; ~/.config/emacs/ghostel/ (gitignored) so package upgrades don't wipe
+;;; it. On Linux the shell is simply $SHELL.
 
-    ;; =======================================================================
-    ;; Windows
-    ;; =======================================================================
+(use-package ghostel
+  :ensure t
+  :commands (ghostel ghostel-new)
+  :custom
+  ;; Evil's visual state (v) activates the mark; isearch and
+  ;; minibuffer-exit move point off the live cursor. Ghostel's
+  ;; defaults treat any of those as "user wants to read/copy" and
+  ;; silently freeze the buffer into copy-mode -- a mode evil's
+  ;; own i/a/ESC don't know how to exit. nil keeps semi-char (live
+  ;; typing) active through all three; use `C-c C-t' / `C-x C-q'
+  ;; when you actually do want the frozen, selectable view.
+  (ghostel-mark-activation-input-mode nil)
+  (ghostel-mouse-drag-input-mode nil)
+  (ghostel-point-leave-input-mode nil)
+  (ghostel-kill-buffer-on-exit t)
+  ;; Keep the downloaded native module out of elpa/ (see header).
+  (ghostel-module-directory (expand-file-name "ghostel/" user-emacs-directory))
+  :config
+  ;; The old eat-mode-hook turned these off; the ghostel equivalent was
+  ;; missing, so terminals showed line numbers and scroll-margin.
+  (add-hook 'ghostel-mode-hook
+            (lambda ()
+              (display-line-numbers-mode -1)
+              (setq-local scroll-margin 0))))
 
-    (progn
+(use-package evil-ghostel
+  :ensure t
+  :after (ghostel evil)
+  :hook (ghostel-mode . evil-ghostel-mode)
+  :custom
+  ;; 'auto (the default): ESC -> normal state at a plain shell
+  ;; prompt (standard vim ESC/i/a/v), and ESC -> forwarded to the
+  ;; app while an alt-screen program (vim, less, htop) is running,
+  ;; so nested apps still work normally too. Left explicit here so
+  ;; it's obvious this was a deliberate choice, not an oversight.
+  (evil-ghostel-escape 'auto))
 
-      (use-package ghostel
-        :ensure t
-        :commands ghostel
-        :custom
-        ;; Evil's visual state (v) activates the mark; isearch and
-        ;; minibuffer-exit move point off the live cursor. Ghostel's
-        ;; defaults treat any of those as "user wants to read/copy" and
-        ;; silently freeze the buffer into copy-mode -- a mode evil's
-        ;; own i/a/ESC don't know how to exit. nil keeps semi-char (live
-        ;; typing) active through all three; use `C-c C-t' / `C-x C-q'
-        ;; when you actually do want the frozen, selectable view.
-        (ghostel-mark-activation-input-mode nil)
-        (ghostel-mouse-drag-input-mode nil)
-        (ghostel-point-leave-input-mode nil))
+;; ---------------------------------------------------------------------------
+;; Windows only: run Git Bash inside ghostel.
+;; ---------------------------------------------------------------------------
+(when suhas/windows-p
+  (let* ((git-root "C:/Program Files/Git")
+         (usr-bin (concat git-root "/usr/bin"))
+         (mingw-bin (concat git-root "/mingw64/bin"))
+         (bash (concat usr-bin "/bash.exe")))
 
-      (use-package evil-ghostel
-        :ensure t
-        :after (ghostel evil)
-        :hook (ghostel-mode . evil-ghostel-mode)
-        :custom
-        ;; 'auto (the default): ESC -> normal state at a plain shell
-        ;; prompt (standard vim ESC/i/a/v), and ESC -> forwarded to the
-        ;; app while an alt-screen program (vim, less, htop) is running,
-        ;; so nested apps still work normally too. Left explicit here so
-        ;; it's obvious this was a deliberate choice, not an oversight.
-        (evil-ghostel-escape 'auto))
+    ;; List form: executable + args. Long options before short ones
+    ;; (bash rejects long options that follow short ones) --
+    ;; "--login" before "-i" already satisfies this.
+    (setq ghostel-shell (list bash "--login" "-i"))
 
-      (let* ((git-root "C:/Program Files/Git")
-             (usr-bin (concat git-root "/usr/bin"))
-             (mingw-bin (concat git-root "/mingw64/bin"))
-             (bash (concat usr-bin "/bash.exe")))
+    ;; Git Bash normally sets these itself.
+    ;; Since Emacs launches bash directly, we do it here.
+    (setenv "MSYSTEM" "MINGW64")
+    (setenv "CHERE_INVOKING" "1")
 
-        ;; ------------------------------------------------------------
-        ;; Configure Bash for ghostel
-        ;; ------------------------------------------------------------
+    ;; usr/bin      -> clear, ls, grep, sed...
+    ;; mingw64/bin  -> gcc, dlls, runtime...
+    (dolist (dir (list usr-bin mingw-bin))
+      (unless (member dir exec-path)
+        (push dir exec-path)))
 
-        ;; List form: executable + args. Long options before short ones
-        ;; (bash rejects long options that follow short ones) --
-        ;; "--login" before "-i" already satisfies this.
-        (setq ghostel-shell (list bash "--login" "-i"))
+    ;; delete-dups: `suhas/reload-config' used to prepend these two
+    ;; directories to PATH again on every reload.
+    (setenv
+     "PATH"
+     (mapconcat
+      #'identity
+      (delete-dups
+       (append
+        (list usr-bin mingw-bin)
+        (split-string (or (getenv "PATH") "") ";" t)))
+      ";"))
 
-        (setq ghostel-kill-buffer-on-exit t)
-
-        ;; ------------------------------------------------------------
-        ;; Git Bash environment
-        ;; ------------------------------------------------------------
-
-        ;; Git Bash normally sets these itself.
-        ;; Since Emacs launches bash directly, we do it here.
-
-        (setenv "MSYSTEM" "MINGW64")
-        (setenv "CHERE_INVOKING" "1")
-
-        ;; ------------------------------------------------------------
-        ;; PATH
-        ;; ------------------------------------------------------------
-
-        ;; Git utilities live here:
-        ;;
-        ;; usr/bin      -> clear, ls, grep, sed...
-        ;; mingw64/bin  -> gcc, dlls, runtime...
-
-        (dolist (dir (list usr-bin mingw-bin))
-          (unless (member dir exec-path)
-            (push dir exec-path)))
-
-        (setenv
-         "PATH"
-         (mapconcat
-          #'identity
-          (append
-           (list usr-bin mingw-bin)
-           (split-string (or (getenv "PATH") "") ";" t))
-          ";"))
-
-        ;; UTF-8 everywhere.
-
-        (set-language-environment "UTF-8")
-        (prefer-coding-system 'utf-8-unix)))
-
-  ;; =======================================================================
-  ;; Linux
-  ;; =======================================================================
-
-  (progn
-    (use-package eat
-      :ensure t
-      :commands eat
-      :custom
-      (eat-kill-buffer-on-exit t)
-      (eat-enable-mouse t)
-      :config
-      (add-hook
-       'eat-mode-hook
-       (lambda ()
-         (display-line-numbers-mode -1)
-         (setq-local scroll-margin 0))))))
+    ;; UTF-8 everywhere (utf-8-unix = LF line endings for new files).
+    (set-language-environment "UTF-8")
+    (prefer-coding-system 'utf-8-unix)))
 
 ;; ===========================================================================
 ;; Shared multi-terminal layer
 ;; ===========================================================================
 
-(defvar suhas/terminal-mode (if suhas/windows-p 'ghostel-mode 'eat-mode)
-  "Major mode of the active terminal backend on this platform.")
+(defvar suhas/terminal-mode 'ghostel-mode
+  "Major mode of the terminal backend (ghostel on every platform).")
 
 (defvar suhas/terminal-position 'below
   "Where the terminal window is placed: `below' or `right'.
@@ -219,10 +200,10 @@ was on screen before the collapse."
 (defun suhas/terminal-spawn (&optional name)
   "Create a brand-new terminal instance, optionally naming it."
   (suhas/terminal-ensure-window)
-  (let ((current-prefix-arg '(4))) ; mimics C-u M-x eat / C-u M-x ghostel -> forces a NEW buffer
-    (if suhas/windows-p
-        (call-interactively #'ghostel)
-      (call-interactively #'eat)))
+  ;; A non-numeric prefix arg ('(4) = C-u) makes `ghostel' create a NEW
+  ;; buffer instead of reusing *ghostel*. Passed directly now; the old
+  ;; code faked it with `call-interactively' + a bound current-prefix-arg.
+  (ghostel '(4))
   (when name
     (rename-buffer (format "*term:%s*" name) t)))
 
@@ -301,8 +282,24 @@ otherwise whatever's showing in the terminal window. Nil if neither."
    (t nil)))
 
 (defun suhas/terminal-kill ()
+  "SPC t k -- kill the current (or displayed) terminal.
+If other terminals of this perspective exist, the terminal window shows
+one of them; otherwise the window closes. (This used to be a bare
+`delete-window': from a code buffer it deleted the CODE window and left
+the terminal running.)"
   (interactive)
-  (delete-window))
+  (let ((target (suhas/terminal--target)))
+    (if (not target)
+        (message "No terminal to kill")
+      (let ((others (remq target (suhas/persp-terminal-buffers)))
+            (win (suhas/terminal-window))
+            (kill-buffer-query-functions nil))
+        (kill-buffer target)
+        (cond
+         ((and others (window-live-p win))
+          (set-window-buffer win (car others)))
+         ((and (window-live-p win) (not (one-window-p)))
+          (delete-window win)))))))
 
 (defun suhas/terminal-rename ()
   "SPC t r -- rename the current (or displayed) terminal."

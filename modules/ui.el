@@ -10,17 +10,13 @@
 
 ;;; LINE NUMBERS
 
+;; Opt IN for editing buffers instead of "on everywhere, then a hook list
+;; to switch it off". The old blacklist had to name every special mode
+;; and had already missed ghostel, xref, grep, Info... Special buffers
+;; (magit, dired, help, terminals, compilation) are simply never listed.
 (setq display-line-numbers-type 'relative)
-(global-display-line-numbers-mode 1)
-
-(defun suhas/disable-line-numbers ()
-  (display-line-numbers-mode -1))
-
-(dolist (hook '(term-mode-hook vterm-mode-hook eat-mode-hook shell-mode-hook
-                eshell-mode-hook dired-mode-hook ibuffer-mode-hook
-                magit-mode-hook help-mode-hook org-agenda-mode-hook
-                messages-buffer-mode-hook))
-  (add-hook hook #'suhas/disable-line-numbers))
+(dolist (hook '(prog-mode-hook text-mode-hook conf-mode-hook))
+  (add-hook hook #'display-line-numbers-mode))
 
 ;;; SCROLLING
 
@@ -42,9 +38,12 @@
 (defconst suhas/font-size 120)
 
 (defun suhas/apply-font (&optional frame)
+  "Apply the Iosevka font, but only if it is installed (and we are in a GUI)."
   (with-selected-frame (or frame (selected-frame))
-    (unless (and (equal (face-attribute 'default :family) suhas/font-family)
-                 (= (face-attribute 'default :height) suhas/font-size))
+    (when (and (display-graphic-p)
+               (find-font (font-spec :family suhas/font-family))
+               (not (and (equal (face-attribute 'default :family) suhas/font-family)
+                         (= (face-attribute 'default :height) suhas/font-size))))
       (set-face-attribute 'default nil
                           :family suhas/font-family
                           :height suhas/font-size)
@@ -54,8 +53,14 @@
 
 ;;; THEME FIXES
 
-(defun suhas/theme-before-load (&rest _)
-  (mapc #'disable-theme custom-enabled-themes))
+(defun suhas/theme-before-load (theme &optional _no-confirm no-enable)
+  "Disable the current theme(s) so themes never stack -- but only when THEME
+really exists and is about to be ENABLED. Before, a missing theme (e.g. an
+uninstalled gruber-darker) removed your theme and then failed to load
+anything, leaving the default white; and `use-package' calls
+(load-theme 'use-package t t), which also wiped the active theme."
+  (when (and (not no-enable) (memq theme (custom-available-themes)))
+    (mapc #'disable-theme custom-enabled-themes)))
 
 (defun suhas/theme-after-load (&rest _)
   (dolist (face '(hl-line vertico-current
@@ -75,7 +80,10 @@
   '(misterioso modus-vivendi modus-operandi tango-dark wombat
     deeper-blue wheatgrass gruber-darker modus-vivendi-tinted chyla-dark inkpot haki))
 
-(defconst suhas/theme-count (length suhas/themes))
+(defun suhas/available-themes ()
+  "`suhas/themes' that exist on THIS machine (third-party ones may not)."
+  (let ((available (custom-available-themes)))
+    (seq-filter (lambda (th) (memq th available)) suhas/themes)))
 
 (advice-add #'load-theme :before #'suhas/theme-before-load)
 (advice-add #'load-theme :after #'suhas/theme-after-load)
@@ -90,12 +98,9 @@
       (car suhas/themes)))
 
 (defun suhas/cycle-theme (direction)
-  (let* ((idx (or (cl-position (suhas/current-theme)
-                               suhas/themes)
-                  0))
-         (theme (nth (mod (+ idx direction)
-                          suhas/theme-count)
-                     suhas/themes)))
+  (let* ((themes (suhas/available-themes))
+         (idx (or (cl-position (suhas/current-theme) themes) 0))
+         (theme (nth (mod (+ idx direction) (length themes)) themes)))
     (load-theme theme t)
     (customize-save-variable
      'custom-enabled-themes
@@ -115,7 +120,7 @@
   (let* ((choice
           (completing-read
            "Theme: "
-           (mapcar #'symbol-name suhas/themes)
+           (mapcar #'symbol-name (suhas/available-themes))
            nil t))
          (theme (intern choice)))
     (load-theme theme t)
@@ -134,7 +139,7 @@
 
 ;; Show only hours and minutes in 24-hour format
 (setq display-time-format "%H:%M")
-(setq display-time-default-load-average t) ; Hide load average
+(setq display-time-default-load-average nil) ; Hide load average
 (setq display-time-mail-string "")          ; Hide mail indicator
 
 
@@ -196,13 +201,14 @@
 
 ;;; VISUAL POLISH
 
-(global-hl-line-mode 0)
+;; `setq-default', not `setq': `truncate-lines' becomes buffer-local the
+;; moment it is set, so the old (setq truncate-lines t) only ever changed
+;; *scratch* and every other buffer silently wrapped. Org already turns on
+;; visual-line-mode for itself; do the same for other prose buffers.
+;; (show-paren and the bell are configured once, in core.el.)
+(setq-default truncate-lines t)
+(add-hook 'text-mode-hook #'visual-line-mode)
 
-(setq truncate-lines t
-      show-paren-delay 0
-      ring-bell-function #'ignore)
-
-(show-paren-mode 1)
 (blink-cursor-mode -1)
 
 ;;; LINE WRAPPING (per-buffer toggle)

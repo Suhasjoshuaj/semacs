@@ -27,6 +27,11 @@
 
 (use-package org
   :ensure nil ; built-in, ships with Emacs
+  ;; Lazy: org (a big package) used to be loaded on EVERY startup, and
+  ;; org-roam + its database sync loaded right behind it. Now org loads
+  ;; when you open an .org file or call org-agenda/org-capture (those are
+  ;; autoloaded). The :custom values below are applied either way.
+  :defer t
   :custom
   (org-directory "~/org")
   (org-default-notes-file "~/org/notes.org")
@@ -129,12 +134,9 @@
 ;; explicitly to Vim-style h/j/k/l muscle memory instead of Org's default
 ;; arrow-key bindings.
 ;; Guard on BOTH packages: evil-define-key is defined by `evil`, and
-;; org-mode-map is defined by `org`. org is built-in and loads immediately
-;; during init (long before evil-mode is turned on from emacs-startup-hook),
-;; so gating on 'org alone fires this before `evil` package ever exists —
-;; that's what caused "void-function evil-define-key". Nesting both guards
-;; means this only runs once both symbols genuinely exist, no matter which
-;; package happens to load first.
+;; org-mode-map is defined by `org`. Nesting both guards means this only
+;; runs once both symbols genuinely exist, no matter which package happens
+;; to load first (evil loads from emacs-startup-hook; org now loads lazily).
 (with-eval-after-load 'evil
   (with-eval-after-load 'org
     (evil-define-key '(normal insert) org-mode-map
@@ -220,7 +222,13 @@
 ;; likely don't need to install anything extra).
 
 (use-package org-roam
-  :after org
+  ;; Lazy (was `:after org', which loaded it - and ran a database sync -
+  ;; at every startup). It loads on its first command below, or as soon as
+  ;; you open any org file (hook right after this block), so notes you
+  ;; edit are indexed either way.
+  :defer t
+  :commands (org-roam-node-find org-roam-node-insert org-roam-buffer-toggle
+             org-roam-capture org-roam-graph)
   :custom
   ;; Where roam notes live. Can be the same as org-directory or a
   ;; subfolder — using a subfolder keeps roam notes separate from
@@ -250,6 +258,8 @@
            :target (file+head "%<%Y%m%d%H%M%S>-${slug}.org"
                                "#+title: ${title}\n#+filetags: :\n")
            :unnarrowed t))))
+
+(add-hook 'org-mode-hook (lambda () (require 'org-roam nil t)))
 
 (with-eval-after-load 'evil
   (suhas/leader

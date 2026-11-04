@@ -12,11 +12,17 @@
   (setq default-directory
         (expand-file-name "~")))
 
+;; Only the *scratch* buffer gets ~ as its directory. The old hook ran
+;; (cd "~") in whatever buffer was current at startup, so
+;; `emacs ~/code/proj/main.c' ended up with main.c's default-directory
+;; set to ~ -- and project.el, which decides the project from
+;; default-directory, then saw NO project for that file.
 (add-hook
  'emacs-startup-hook
  (lambda ()
-   ;; Change the process working directory once.
-   (cd (expand-file-name "~"))))
+   (when-let ((scratch (get-buffer "*scratch*")))
+     (with-current-buffer scratch
+       (setq default-directory (file-name-as-directory (expand-file-name "~")))))))
 ;;; ============================================================
 ;;; PACKAGE MANAGER — Use built-in package.el + use-package
 ;;; ============================================================
@@ -26,6 +32,12 @@
 (require 'package)
 (add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/"))
 (add-to-list 'package-archives '("nongnu" . "https://elpa.nongnu.org/nongnu/"))
+;; MELPA versions are date-stamped snapshots, so they ALWAYS outrank the
+;; released versions on GNU/NonGNU ELPA and everything (vertico, consult,
+;; corfu...) silently tracked bleeding-edge master. Prefer the stable
+;; archives; MELPA is still used for packages only it has (ghostel, ...).
+(setq package-archive-priorities
+      '(("gnu" . 30) ("nongnu" . 20) ("melpa" . 10)))
 (package-initialize)
  
 
@@ -49,6 +61,9 @@
 
 ;; exec-path-from-shell: Copy PATH from your shell to Emacs.
 ;; Without this, language servers (clangd, rust-analyzer, etc) aren't found.
+;; NOTE: this spawns a login+interactive shell during startup, which is
+;; often the single biggest chunk of init time (a heavy .bashrc/.zshrc,
+;; nvm, conda...). Measure with `M-x emacs-init-time'.
 (if suhas/windows-p
     (setq shell-file-name "C:/Program Files/Git/bin/bash.exe"
           shell-command-switch "-c")
@@ -156,9 +171,9 @@
 ;; be explicit about it instead of guessing from indentation.
 (setq which-func-unknown "")
 
-;; Kill the entire buffer, not just the window.
-;; Prevents orphaned buffers.
-(setq kill-buffer-delete-windows t)
+;; (Removed `kill-buffer-delete-windows': no such variable exists in
+;; Emacs, so that line did nothing. `kill-buffer' already replaces the
+;; buffer in any window showing it.)
 
 ;;; ============================================================
 ;;; SHARED HELPERS — used by terminal.el, buffer-nav.el, window-mgmt.el

@@ -50,8 +50,9 @@
 
 (add-hook 'java-mode-hook #'suhas/java-style)
 
-(add-hook 'prog-mode-hook
-          (lambda ()
-            (setq indent-tabs-mode nil)))
+;; (Removed a prog-mode-hook that forced `indent-tabs-mode' to nil: core.el
+;; already sets that default, and the hook ALSO ran for makefile-mode
+;; (a prog-mode child), so TAB in a Makefile inserted spaces and `make'
+;; failed with "missing separator". makefile-mode keeps its real tabs now.)
 
 ;;; langs.el ends here

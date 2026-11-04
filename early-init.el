@@ -6,51 +6,68 @@
 ;;; GC TUNING — Defer garbage collection during startup
 ;;; ============================================================
 
-;; Emacs runs garbage collection frequently, which can stall startup.
-;; We raise the threshold temporarily, then reset it later in core.el.
+;; Raise the GC limits while loading. init.el puts BOTH back afterwards.
+;; (Previously only gc-cons-threshold was restored: gc-cons-percentage
+;; stayed at 0.6 forever, which lets the heap balloon before a GC runs
+;; and makes each GC a longer visible stall.)
 (setq gc-cons-threshold most-positive-fixnum
       gc-cons-percentage 0.6)
+
+;; Never load a stale .elc over a newer .el.
+(setq load-prefer-newer t)
+
+;;; ============================================================
+;;; PACKAGE.EL — activate once, not twice
+;;; ============================================================
+
+;; Emacs would call (package-activate-all) after this file, and core.el
+;; then calls (package-initialize) again: the whole elpa/ directory was
+;; scanned twice on every start. core.el does it explicitly, so turn the
+;; automatic one off.
+(setq package-enable-at-startup nil)
 
 ;;; ============================================================
 ;;; DISABLE GUI ELEMENTS — Before the frame renders
 ;;; ============================================================
 
-;; These must run before the frame is created to avoid visual flash.
 (push '(menu-bar-lines . 0) default-frame-alist)
 (push '(tool-bar-lines . 0) default-frame-alist)
 (push '(vertical-scroll-bars) default-frame-alist)
 (push '(horizontal-scroll-bars) default-frame-alist)
 
-;; Disable startup screen
 (setq inhibit-startup-message t
       inhibit-startup-echo-area-message user-login-name)
 
 ;;; ============================================================
-;;; NATIVE COMPILATION — Don't block on it during startup
+;;; NATIVE COMPILATION — be quiet
 ;;; ============================================================
 
-;; Emacs 28+ compiles elisp to native bytecode (faster execution).
-;; But the first run blocks startup while it compiles everything.
-;; We defer it to the background after startup finishes.
+;; Native compilation is ALREADY asynchronous; it never blocks startup.
+;; All we want is to not be interrupted by its warnings about other
+;; people's packages. (The eln-cache already lives in
+;; user-emacs-directory by default, so no redirect is needed.)
 (when (native-comp-available-p)
-  (setq native-comp-async-report-warnings-errors nil
-        native-compile-target-directory (expand-file-name "eln-cache/" user-emacs-directory)))
+  (setq native-comp-async-report-warnings-errors 'silent))
 
 ;;; ============================================================
 ;;; FILE-NAME-HANDLER — Suppress during startup
 ;;; ============================================================
 
-;; Emacs checks EVERY file operation against file-name-handler-alist.
-;; This is slow. We save the original list and restore it after startup.
+;; Every file operation is checked against file-name-handler-alist, which
+;; is slow while loading dozens of files. Empty it, then restore it.
 (defvar suhas--file-name-handler-alist file-name-handler-alist)
 (setq file-name-handler-alist nil)
 (add-hook 'emacs-startup-hook
           (lambda ()
-            (setq file-name-handler-alist suhas--file-name-handler-alist)))
+            ;; MERGE rather than overwrite, so a handler some package
+            ;; registered during init is not thrown away.
+            (setq file-name-handler-alist
+                  (delete-dups (append file-name-handler-alist
+                                       suhas--file-name-handler-alist)))))
 
-;; Suppress warnings about missing lexical-binding cookies
-;; for emacs 31.1
-(setq warning-suppress-types '((lexical-binding)))
-(setq warning-suppress-types '((files missing-lexbind-cookie)))
+;; Quiet the missing-lexical-binding-cookie warning (one list; the old
+;; file had two setq's and the second silently overwrote the first).
+(setq warning-suppress-types '((lexical-binding)
+                               (files missing-lexbind-cookie)))
 
 ;;; early-init.el ends here

@@ -10,12 +10,12 @@
   (tab-bar-close-button-show nil)
   (tab-bar-format '(tab-bar-format-tabs tab-bar-separator)))
 
+;; Colors come from the active theme. (They used to be hard-coded dark
+;; grays, which looked wrong under modus-operandi and did not follow
+;; theme switches.)
 (add-hook 'tab-bar-mode-hook
           (lambda ()
-            (set-face-attribute 'tab-bar nil
-                                :height 1.0
-                                :foreground "#888"
-                                :background "#1e1e1e")))
+            (set-face-attribute 'tab-bar nil :height 1.0)))
 
 (defun suhas/switch-to-tab (n)
   (let* ((tabs (tab-bar-tabs)) (tab (nth (1- n) tabs)))
@@ -45,11 +45,7 @@
 (global-set-key (kbd "C-x -") #'shrink-window)
 (global-set-key (kbd "C-x |") #'shrink-window-horizontally)
 
-;;; Project package
-(use-package project
-  :ensure nil
-  :custom
-  (project-list-file (expand-file-name "projects" user-emacs-directory)))
+;;; (project.el configuration lives in search.el now.)
 
 ;;; Buffer isolation
 (use-package perspective

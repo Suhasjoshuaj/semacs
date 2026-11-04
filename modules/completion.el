@@ -5,13 +5,15 @@
 ;;; - vertico: Vertical list UI for minibuffer completion (file, buffer, command selection)
 ;;; - marginalia: Adds annotations (file size, command docstring, etc)
 ;;; - consult: Enhanced commands (buffer switch with preview, grep with preview, etc)
-;;; - orderless: Fuzzy matching — "py find" matches "python-find-file"
+;;; - orderless: space-separated words in any order — "py find" matches "python-find-file"
 ;;; - corfu: In-buffer completion popup (code suggestions, LSP completions)
 ;;;
-;;; External binaries required for full functionality:
-;;; - fd    -> powers consult-fd (project-wide fuzzy file search)
-;;; - ripgrep (rg) -> powers consult-ripgrep (project-wide fuzzy content search)
+;;; Projects, find-file-anywhere, grep, recent files and speedbar live in
+;;; search.el. This file is only the completion UI + the consult tuning.
+;;;
+;;; External binaries (used from search.el):
 ;;;   Arch:    sudo pacman -S fd ripgrep
+;;;   Debian:  sudo apt install fd-find ripgrep     (binary is `fdfind'; handled)
 ;;;   Windows: scoop install fd ripgrep   (or winget install sharkdp.fd BurntSushi.ripgrep.MSVC)
 
 ;;; ============================================================
@@ -26,9 +28,13 @@
   (vertico-mode 1)
   :custom
   (vertico-count 12)        ; Show 12 candidates at a time
-  (vertico-resize nil)      ; Shrink list if fewer candidates
-  (vertico-cycle t)         ; Wrap around when you reach the end
-  (vertico-reverse-mode t))
+  (vertico-resize nil)      ; Fixed-height list (no jumping as you type)
+  (vertico-cycle t))        ; Wrap around when you reach the end
+;; (Removed `(vertico-reverse-mode t)' from :custom -- that only set a
+;; variable; the vertico-reverse extension was never loaded, so it did
+;; nothing. To really get a bottom-anchored list:
+;;   (use-package vertico-reverse :after vertico :ensure nil
+;;     :init (vertico-reverse-mode 1))
 
 ;; vertico-directory: Makes file navigation smooth with DEL to go back.
 (use-package vertico-directory
@@ -52,20 +58,35 @@
 (use-package orderless
   :custom
   (completion-styles '(orderless basic))
-  ;; IMPORTANT: previously files only used partial-completion, which meant
-  ;; fuzzy matching (including flex) was SILENTLY DISABLED for any file-category
-  ;; completion — this includes consult-fd/consult-find results, since those
-  ;; candidates are tagged with the 'file completion category.
-  ;; Fix: let orderless run first for fuzzy matching, keep partial-completion
-  ;; as a fallback so path-segment navigation (e.g. "us/lo/bin" -> /usr/local/bin)
-  ;; still works inside raw find-file.
+  ;; Emacs ships per-category defaults (buffer, project-file, xref-location,
+  ;; info-menu...) that use plain `substring' matching and take PRIORITY
+  ;; over `completion-styles'. So Orderless was silently NOT used for
+  ;; `SPC SPC' buffers, `SPC p f' project files or xref results:
+  ;; "foo bar" (two words) found nothing there. nil = everything uses the
+  ;; styles below, so every list behaves the same way.
+  (completion-category-defaults nil)
   (completion-category-overrides
-   '((file (styles orderless partial-completion))))
+   '(;; find-file / recent files: orderless first, partial-completion as
+     ;; fallback so "us/lo/bin" -> /usr/local/bin still works.
+     (file (styles orderless partial-completion))
+     ;; project files get true fuzzy matching (see style below).
+     (project-file (styles suhas-fuzzy))))
+  ;; Predictable everywhere else: words in any order, as literals or
+  ;; regexps, or initials ("cvf" -> completion-vertico-file only when the
+  ;; words start with c, v, f). `orderless-flex' is deliberately NOT
+  ;; global: it matches almost anything and turns M-x / buffer lists into
+  ;; noise. You can still ask for it on demand by ending a word with ~
+  ;; ("cvf~" = flex).
   (orderless-matching-styles
-   '(orderless-literal
-     orderless-regexp
-     orderless-flex        ; true fuzzy: out-of-order subsequence matching
-     orderless-initialism)))
+   '(orderless-literal orderless-regexp orderless-initialism))
+  :config
+  ;; Fuzzy style used ONLY for the project file list (SPC p f), where the
+  ;; candidates are a static list of relative paths: "srcmain" finds
+  ;; "src/main.c". (Not for consult-fd/ripgrep: those hand your input to
+  ;; fd/rg, and Orderless only filters what you type AFTER a `#'.)
+  (orderless-define-completion-style suhas-fuzzy
+    (orderless-matching-styles
+     '(orderless-literal orderless-regexp orderless-flex))))
 
 ;;; ============================================================
 ;;; MARGINALIA — Annotations in completion menu
@@ -81,20 +102,8 @@
   :init
   (marginalia-mode 1))
 
-;;; ============================================================
-;;; RECENTF
-;;; ============================================================
-(use-package recentf
-  :ensure nil
-  :init
-  (recentf-mode 1)
-  :custom
-  (recentf-exclude '("/tmp/" "/ssh:" "\\.elc\\'" "\\.git/" "/node_modules/")))
+;; (recentf, savehist and save-place moved to search.el.)
 
-(use-package savehist
-  :ensure nil
-  :init
-  (savehist-mode 1))
 ;;; ============================================================
 ;;; CONSULT — Enhanced search and navigation commands
 ;;; ============================================================
@@ -102,10 +111,11 @@
 ;; Consult replaces built-in commands with preview-aware versions:
 ;; - consult-buffer:    Switch buffer with live preview
 ;; - consult-line:      Search current buffer (like Ctrl+F)
-;; - consult-ripgrep:   Fuzzy content search across the whole project
-;; - consult-fd:        Fuzzy file NAME search across the whole project
-;;                       (no more navigating into subfolders manually)
+;; - consult-ripgrep:   Content search (project, or ALL your repos)
+;; - consult-fd:        File NAME search across ALL your repos
+;; - consult-xref:      Shows definitions/references with live preview
 ;; - consult-imenu:     Jump to function/class in current file
+;; The project/repo wrappers are in search.el.
 
 (use-package consult
   :after vertico
@@ -122,13 +132,9 @@
   ;; or consult-ripgrep result set this causes visible lag/flicker.
   ;; Waiting 0.3s for you to stop moving before previewing fixes that.
   (consult-preview-key '(:debounce 0.3 any))
-  ;; Tell consult to use project.el for finding project root, so
-  ;; consult-fd / consult-ripgrep search from the project root even
-  ;; when you invoke them from a buffer in a subdirectory.
-  (consult-project-function
-   (lambda (_)
-     (when-let (project (project-current))
-       (project-root project))))
+  ;; (Removed the `consult-project-function' override: Consult's default
+  ;; already uses project.el, and the override additionally dropped the
+  ;; "prompt for a project" behavior.)
 
   :config
   ;; Hide noisy internal buffers from `consult-buffer'.
@@ -140,23 +146,49 @@
                     "\\`\\*eglot.*\\*\\'"
                     "\\`\\*Flymake.*\\*\\'"
                     "\\`\\*Echo Area.*\\*\\'"
-                    "\\`\\*Compile-Log*\\*\\'"
+                    "\\`\\*Compile-Log\\*\\'"
                     "\\` \\*Minibuf-.*\\*\\'"))
-    (add-to-list 'consult-buffer-filter regexp)))
+    (add-to-list 'consult-buffer-filter regexp))
+
+  ;; Definitions / references: one Vertico list WITH live preview, instead
+  ;; of an *xref* buffer. This also fixes "xref can't open the target":
+  ;; in the *xref* buffer, evil's RET (evil-ret) shadowed xref's own RET.
+  ;; M-. / M-? / project-find-regexp / eglot references all go through
+  ;; these two variables.
+  (setq xref-show-xrefs-function #'consult-xref
+        xref-show-definitions-function #'consult-xref)
+
+  ;; Ripgrep: also search dotfiles (.github, .env, ...) but never .git.
+  (setq consult-ripgrep-args
+        (append (if (listp consult-ripgrep-args)
+                    consult-ripgrep-args
+                  (list consult-ripgrep-args))
+                (list "--hidden --glob=!.git/")))
+
+  ;; fd (consult-fd): file NAMES only, files only, dotfiles included.
+  ;; Consult's default passes --full-path, and fd then matches your text
+  ;; against the ABSOLUTE path: typing "cpp" inside ~/cpp (or your user
+  ;; name, or the project folder's name) matched EVERY file.
+  (setq consult-fd-args
+        '((if (executable-find "fdfind" 'remote) "fdfind" "fd")
+          "--color=never --hidden --type f --exclude .git --exclude node_modules --exclude __pycache__ --exclude .venv")))
 
 
 ;; Give Windows pipes more breathing room (default is small, causes exactly this error)
 (when (eq system-type 'windows-nt)
   (setq w32-pipe-buffer-size (* 64 1024)))
 
-;; Slow down how eagerly consult restarts the fd process while you type,
-;; so rapid typing/backspacing doesn't pile up overlapping subprocesses
-(setq consult-async-input-debounce 0.4   ; wait longer after keystroke before restarting search
-      consult-async-input-throttle 0.6)  ; minimum time between restarts
+;; Windows only: slow down how eagerly consult restarts fd/rg while you
+;; type, so rapid typing doesn't pile up overlapping subprocesses. On
+;; Linux the defaults (0.2s / 0.5s) feel noticeably snappier.
+(when (eq system-type 'windows-nt)
+  (setq consult-async-input-debounce 0.4
+        consult-async-input-throttle 0.6))
 
 ;; Buffer isolation with perspective package
 (with-eval-after-load 'consult
-  (consult-customize consult-source-recent-file :hidden t :default nil)
+  ;; Recent files are no longer hidden: SPC SPC now also finds files you
+  ;; opened before (that is how you reopen things without C-x C-f).
   (with-eval-after-load 'perspective
     (consult-customize consult-source-buffer :hidden t :default nil)
 
@@ -193,31 +225,6 @@
       "Perspective-scoped terminal buffers, hidden until narrowed with `t'.")
 
     (add-to-list 'consult-buffer-sources 'consult-source-persp-terminal t)))
-
-;;; ============================================================
-;;; PROJECT-SCOPED FIND / GREP
-;;; ============================================================
-
-;; C-c f / C-c g already search from consult-project-function's root
-;; when called with a prefix arg (C-u C-c f). These two give the
-;; project-rooted behavior unconditionally, no prefix needed.
-
-(defun suhas/project-root ()
-  "Return the current project root, or `default-directory'."
-  (if-let ((project (project-current nil)))
-      (project-root project)
-    default-directory))
-
-(defun suhas/consult-project-find ()
-  "Fuzzy-find files from the current project root."
-  (interactive)
-  (consult-fd (suhas/project-root)))
-
-(defun suhas/consult-project-ripgrep ()
-  "Search file contents from the current project root."
-  (interactive)
-  (consult-ripgrep (suhas/project-root)))
-
 
 ;;; ============================================================
 ;;; CORFU — In-buffer code completion popup
@@ -270,62 +277,4 @@
   (add-to-list 'completion-at-point-functions #'cape-dabbrev t))
 
 
-;;; ============================================================
-;;; SPEEDBAR -- inbuilt filetree
-;;; ============================================================
-
-(defun suhas/speedbar-visit-in-place (orig-fn &rest args)
-  "Make speedbar visit files in the last real edit window, not its own dedicated pane."
-  (let ((target (or (get-mru-window nil nil t) (selected-window)))
-        (sb-buf (current-buffer)))
-    (select-window target)
-    (with-current-buffer sb-buf
-      (apply orig-fn args))))
-
-(advice-add 'speedbar-edit-line :around #'suhas/speedbar-visit-in-place)
-
-(use-package speedbar
-  :ensure nil
-  :commands (speedbar)
-  :config
-  (setq speedbar-prefer-window t)
-  (setq speedbar-use-images nil)
-
-  ;; Show files speedbar would otherwise hide (yaml, etc. with no tag support)
-  (setq speedbar-show-unknown-files t)
-  ;; Stop hiding dotfiles/dot-directories
-  (setq speedbar-directory-unshown-regexp "\\`\\'")
-
-  ;; Fix: mouse-1 was being translated to mouse-2 (follow-link), which
-  ;; fell through to Evil's global mouse-2 = paste-primary-selection binding.
-  (add-hook 'speedbar-mode-hook
-            (lambda () (setq-local mouse-1-click-follows-link nil)))
-
-  ;; Fix: force files to open in the real edit window instead of
-  ;; splitting, since speedbar's own dedicated window refuses them.
-  (defun suhas/speedbar-visit-in-place (orig-fn &rest args)
-    (let ((target (or (get-mru-window nil nil t) (selected-window)))
-          (sb-buf (current-buffer)))
-      (select-window target)
-      (with-current-buffer sb-buf
-        (apply orig-fn args))))
-  (advice-add 'speedbar-edit-line :around #'suhas/speedbar-visit-in-place)
-
-  ;; Single keyboard-only toggle: open / jump in / jump back out.
-  ;; (Bug was hardcoding "*SPEEDBAR*" — real buffer is internal;
-  ;; `speedbar-buffer` is the variable that always points to it.)
-  (defun suhas/toggle-speedbar-window-focus ()
-    "Toggle focus between the speedbar window and the previous window."
-    (interactive)
-    (let ((sb-win (and (buffer-live-p speedbar-buffer)
-                        (get-buffer-window speedbar-buffer))))
-      (cond
-       ((and sb-win (eq (selected-window) sb-win))
-        (select-window (get-mru-window nil nil t)))
-       (sb-win
-        (select-window sb-win))
-       (t
-        (speedbar 1)
-        (select-window (get-buffer-window speedbar-buffer))))))
-  (global-set-key (kbd "C-x l") #'suhas/toggle-speedbar-window-focus))
 ;;; completion.el ends here
