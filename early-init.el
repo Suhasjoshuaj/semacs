@@ -27,6 +27,19 @@
 (setq package-enable-at-startup nil)
 
 ;;; ============================================================
+;;; EVIL — must be set before ANYTHING loads evil
+;;; ============================================================
+
+;; evil-collection warns if `evil-want-keybinding' is nil but evil was
+;; already loaded with it on. That happened during a first install: evil
+;; gets byte-compiled (and so loaded) inside package-install, earlier than
+;; the `:init' in modules/evil.el runs. Setting both here, before any
+;; package work, makes it impossible. (modules/evil.el sets them again,
+;; which is harmless.)
+(setq evil-want-keybinding nil
+      evil-want-integration t)
+
+;;; ============================================================
 ;;; DISABLE GUI ELEMENTS — Before the frame renders
 ;;; ============================================================
 

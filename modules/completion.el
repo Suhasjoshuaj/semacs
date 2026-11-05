@@ -29,12 +29,10 @@
   :custom
   (vertico-count 12)        ; Show 12 candidates at a time
   (vertico-resize nil)      ; Fixed-height list (no jumping as you type)
-  (vertico-cycle t))        ; Wrap around when you reach the end
-;; (Removed `(vertico-reverse-mode t)' from :custom -- that only set a
-;; variable; the vertico-reverse extension was never loaded, so it did
-;; nothing. To really get a bottom-anchored list:
-;;   (use-package vertico-reverse :after vertico :ensure nil
-;;     :init (vertico-reverse-mode 1))
+  (vertico-cycle t)         ; Wrap around when you reach the end
+  ;; List above the prompt (bottom-anchored). This DOES work from :custom:
+  ;; use-package applies it through Custom, and the mode is autoloaded.
+  (vertico-reverse-mode t))
 
 ;; vertico-directory: Makes file navigation smooth with DEL to go back.
 (use-package vertico-directory

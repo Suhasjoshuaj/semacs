@@ -8,13 +8,18 @@
 (setq use-package-verbose t)
 ;;(setq debug-on-error t)
 
-;; Package signature checking (a security feature) stays ON for signed
-;; archives. `allow-unsigned' only tolerates archives that publish no
-;; signature (MELPA). The old `nil' disabled verification for GNU/NonGNU
-;; ELPA too. If a FRESH machine ever fails with "Failed to verify
-;; signature", run:  (setq package-check-signature nil)  once, then
-;; M-x package-install RET gnu-elpa-keyring-update, and remove the line.
-(setq package-check-signature 'allow-unsigned)
+;; Package signature checking.
+;;  * Windows: OFF. The gpg Emacs finds there is Git for Windows' MSYS gpg
+;;    (terminal.el puts Git's usr/bin first on PATH), and it mangles the
+;;    Windows keyring path ("/c/Program Files/Emacs/c:/Users/.../pubring.kbx:
+;;    No such file"), so verification can never succeed. Downloads still
+;;    go over HTTPS; MELPA is unsigned anyway.
+;;  * Elsewhere: ON for signed archives (`allow-unsigned' only tolerates
+;;    archives that publish no signature, i.e. MELPA). If it ever fails
+;;    with "No public key for 645357D2883A0966": set it to nil once, then
+;;    M-x package-install RET gnu-elpa-keyring-update, and restore it.
+(setq package-check-signature
+      (if (eq system-type 'windows-nt) nil 'allow-unsigned))
 
 ;; Show startup time and package count
 (defun suhas/display-startup-time ()

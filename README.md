@@ -32,7 +32,8 @@ Needs `fd` and `ripgrep` on your PATH.
    of your computers.
 6. **Terminal, first use only:** press `SPC t t`. Ghostel offers to download a
    prebuilt native module; answer **yes**. It needs an Emacs built with dynamic
-   modules: `M-: (featurep 'modules)` must return `t`.
+   modules: `M-: (featurep 'modules)` must return `t`. If nothing happens after
+   "downloading native module…", see Troubleshooting (manual download).
 
 If a module fails to load, Emacs keeps going and shows a warning naming that
 module (it used to stop silently half-way). Fix it, then `SPC c r`.
@@ -161,10 +162,20 @@ Press `SPC` and wait half a second: **which-key** shows what can follow.
 | `SPC t k` | kill the current terminal (window closes if it was the last) |
 | `SPC t K` | kill all terminals in this perspective |
 | `SPC t p` | position: below / right |
+| `SPC t e` | line mode: edit multi-line input with normal Vim keys |
 
 In the terminal, `ESC` goes to normal state at a prompt and is passed through to
 programs like vim/htop. `C-c C-t` or `C-x C-q` freezes the view so you can
 select and copy.
+
+**Multi-line input (pasted commands):** Evil editing in the terminal works by
+sending arrow keys/backspaces to the shell, and only on the line the cursor is
+on. On another line of a multi-line paste, Up/Down mean *shell history*, so
+`i`/`c` jump to the end or pull in old commands. That is how ghostel's
+evil-ghostel is designed, not a config bug. For multi-line input use **line
+mode**: `SPC t e` (or `C-c C-l`) *before* you paste. The input becomes an
+ordinary Emacs buffer region where every Vim key works; `RET` sends it,
+`S-RET` inserts a newline, `C-c C-j` returns to live mode.
 
 #### Code
 | Key | Action |
@@ -222,9 +233,14 @@ To go back to stock magit everywhere, remove `magit` from the
 On by default (Evil). Toggle with `SPC c v` / `C-c v`; off gives normal Emacs
 keys (`C-n/p`, `C-a/e`, …).
 
-- dired, ibuffer, compile, magit, xref and speedbar get full Vim-style
-  bindings from evil-collection. Help and Info keep their own keys (Info stays
-  in Emacs state: `n` `p` `l` `u` `SPC`).
+- ibuffer, compile, magit, xref and speedbar get full Vim-style bindings from
+  evil-collection. **dired and Info stay in Emacs state** with their native
+  keys (dired: `i` insert subdirectory, `a` open in this buffer, `o` sort,
+  `m`/`u`/`d` mark, `C-x C-q` editable dired).
+- dired has its own small leader: `SPC` then `SPC` (buffers) / `k` (kill
+  buffer) / `r` (recent) / `f` (find file everywhere) / `g` `G` (grep project /
+  all repos) / `p` (switch project). Buffer cycling `C-;` `C-'` `C-,` and
+  `C-c f` / `C-c g` are global and work there too.
 - `ESC` quits the minibuffer, region, or running command. It **never closes
   windows** (the old `keyboard-escape-quit` did, in any non-normal state).
 - `C-u` scrolls up; `C-r` redoes.
@@ -269,8 +285,7 @@ The completion popup (Corfu) appears after 2 characters. **TAB** inserts;
 ```
 
 Files Emacs writes (all gitignored): `custom.el` (saved theme), `projects`,
-`recentf`, `places` (cursor positions), `history`, `ghostel/` (terminal native
-module), `elpa/`, `eln-cache/`.
+`recentf`, `places` (cursor positions), `history`, `elpa/`, `eln-cache/`.
 
 ---
 
@@ -279,6 +294,11 @@ module), `elpa/`, `eln-cache/`.
 - **Repo locations:** `suhas/repo-root-candidates` in `modules/search.el`.
 - **Font:** `suhas/font-family` / `suhas/font-size` in `modules/ui.el`
   (applied only if the font is installed).
+- **Recent files in `SPC SPC`:** shown by default (so typing a name finds
+  files from last week). To hide them until you press `f`, add to
+  `completion.el`: `(consult-customize consult-source-recent-file :hidden t :default nil)`.
+  The "Perspective" group (this perspective's buffers) was always visible;
+  `s` only narrows to it.
 - **Themes:** add to `suhas/themes` in `modules/ui.el`; the menu lists only
   themes available on that machine.
 - **Terminal size/position:** `suhas/terminal-height-fraction`,
@@ -301,19 +321,28 @@ Otherwise open any file in it; project.el finds it from the file.
 **A key does nothing in some buffer.** Check the state (`C-z` toggles Emacs
 state). `C-h k <key>` shows what it is bound to.
 
-**Terminal won't start.** `M-: (featurep 'modules)` must be `t`. If the native
-module download failed, run `M-x ghostel-download-module`. On Windows, Git for
-Windows must be at `C:/Program Files/Git` (see `terminal.el`).
+**Terminal won't start / `ghostel--new` is a void function.** `M-: (featurep
+'modules)` must be `t`. That error means the native module isn't loaded. Ghostel's
+built-in downloader gives up *silently* on a slow or filtered connection (30 s
+timeout), so download it by hand:
+1. `M-: (ghostel--module-directory)` shows the folder the module must be in.
+2. From https://github.com/dakra/ghostel/releases pick the asset for your
+   platform (Windows: `ghostel-module-x86_64-windows.dll`).
+3. Save it in that folder named `ghostel-module.dll` (Linux: `ghostel-module.so`),
+   then restart Emacs.
+
+On Windows, Git for Windows must also be at `C:/Program Files/Git` (see `terminal.el`).
 
 **Startup is slow.** `M-x emacs-init-time`, then read `*Messages*` (every
 package prints its load time). Usual suspects: the PATH import from your login
 shell (`exec-path-from-shell` in `core.el`), and background native compilation
 right after package updates (uses CPU but doesn't block).
 
-**Fresh machine: "Failed to verify signature".** `core.el` uses
-`package-check-signature 'allow-unsigned`. With an old keyring: set it to `nil`
-once, run `M-x package-install RET gnu-elpa-keyring-update`, then remove the
-line.
+**"Failed to verify signature … No public key".** On Windows, signature checking
+is off on purpose (see the comment in `init.el`: Git's MSYS gpg can't use Windows
+paths, so it can never verify). On Linux it is on; if you see this there, set
+`package-check-signature` to `nil` once, run `M-x package-install RET
+gnu-elpa-keyring-update`, then set it back (`init.el` does that on restart).
 
 ---
 

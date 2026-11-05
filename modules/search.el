@@ -26,7 +26,7 @@
 
 (defvar suhas/repo-root-candidates
   '("~/code" "~/projects" "~/dev" "~/src" "~/repos" "~/work"
-    "~/cpp" "~/org" "~/.config/emacs")
+    "~/cpp" "~/org" "~/.emacs.d")
   "Folders that CONTAIN your repos (each child folder is a project), or
 that are themselves a project. Folders that don't exist are ignored, so
 this list can safely name places that exist on only one of your machines.
@@ -174,7 +174,10 @@ does it on every call."
 
 ;; Dired buffers refresh themselves when the directory changed on disk.
 (with-eval-after-load 'dired
-  (setq dired-auto-revert-buffer #'dired-directory-changed-p))
+  (setq dired-auto-revert-buffer #'dired-directory-changed-p)
+  ;; `a' (open in THIS buffer instead of a new one) is a "disabled command"
+  ;; that asks for confirmation the first time; just allow it.
+  (put 'dired-find-alternate-file 'disabled nil))
 
 ;;; ============================================================
 ;;; SPEEDBAR -- built-in file tree

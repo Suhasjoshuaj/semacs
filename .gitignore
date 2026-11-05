@@ -10,7 +10,6 @@ elpa/
 tree-sitter/
 transient/
 fd/
-ghostel/
 
 # Compiled Elisp files
 *.elc

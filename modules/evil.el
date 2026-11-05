@@ -57,7 +57,7 @@
 ;; variables above set *before* evil loads, which they already are.
 ;;
 ;; Scoped to the modes where you want the full vim-style binding set:
-;;   dired, ibuffer  marking/deleting/wdired need this to work at all
+;;   ibuffer         marking/deleting need this to work at all
 ;;   compile         you use it directly
 ;;   magit           magit buffers now start in NORMAL state: j/k move,
 ;;                   C-j/C-k hop between sections, s/u stage/unstage,
@@ -69,7 +69,7 @@
 (use-package evil-collection
   :after evil
   :config
-  (evil-collection-init '(ibuffer compile speedbar dired magit xref)))
+  (evil-collection-init '(ibuffer compile speedbar magit xref)))
 
 ;; help and flymake diagnostics: you don't use these enough to
 ;; want their full mnemonic binding set (gj/go/]]/etc.), just vim
@@ -221,7 +221,8 @@
     "t r" #'suhas/terminal-rename
     "t k" #'suhas/terminal-kill
     "t K" #'suhas/terminal-kill-all
-    "t p" #'suhas/terminal-set-position)
+    "t p" #'suhas/terminal-set-position
+    "t e" #'ghostel-line-mode)         ; edit multi-line input (see README)
   
   ;; ── LSP / Errors ───────────────────────────────────────────
   (suhas/leader
@@ -323,17 +324,33 @@
 ;;; SPECIAL BUFFER STATES
 ;;; ============================================================
 
-;; dired / magit / xref / ibuffer / compile all get their vim bindings AND
-;; their initial state from evil-collection (list above): dired is in
-;; normal state now, so the SPC leader works there and the hand-made
-;; dired-only mini leader is gone.
+;; magit / xref / ibuffer / compile / speedbar get their vim bindings AND
+;; their initial state from evil-collection (list above).
 ;;
-;; Info stays in emacs state (n/p/l/u/SPC are native Info keys). The mode
-;; is `Info-mode' with a capital I: the old `info-mode' is no mode at all,
-;; so that line never did anything.
+;; dired and Info stay in EMACS state, keeping their native keys:
+;;   dired: i insert subdir, a open in this buffer, o sort, ^ up, m/u/d
+;;          mark, R rename, + mkdir, C-x C-q editable dired (wdired).
+;;   (evil-collection-dired moved these -- insert-subdir to I, wdired to
+;;   i -- which broke the keys you were used to.)
+;; The mode name is `Info-mode' with a capital I: the old `info-mode' was
+;; no mode at all, so that line never did anything.
 (with-eval-after-load 'evil
-  (evil-set-initial-state 'dired-mode 'normal)
+  (evil-set-initial-state 'dired-mode 'emacs)
   (evil-set-initial-state 'Info-mode 'emacs))
+
+;; Emacs state has no SPC leader, so dired gets a small one of its own
+;; (SPC, then one key). Buffer cycling (C-; C-' C-,) and C-c f / C-c g
+;; are global, so they already work here.
+(with-eval-after-load 'dired
+  (define-prefix-command 'suhas/dired-leader-map)
+  (define-key dired-mode-map (kbd "SPC") #'suhas/dired-leader-map)
+  (define-key suhas/dired-leader-map (kbd "SPC") #'consult-buffer)
+  (define-key suhas/dired-leader-map (kbd "k") #'kill-current-buffer)
+  (define-key suhas/dired-leader-map (kbd "r") #'consult-recent-file)
+  (define-key suhas/dired-leader-map (kbd "f") #'suhas/find-file-everywhere)
+  (define-key suhas/dired-leader-map (kbd "g") #'suhas/grep-project)
+  (define-key suhas/dired-leader-map (kbd "G") #'suhas/grep-everywhere)
+  (define-key suhas/dired-leader-map (kbd "p") #'suhas/project-switch))
 
 ;;; ============================================================
 ;;; WHICH-KEY — shows what can follow SPC (or any prefix) after a pause

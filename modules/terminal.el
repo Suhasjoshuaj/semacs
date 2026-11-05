@@ -4,13 +4,17 @@
 ;;; Requirements: Emacs built with dynamic-module support (check:
 ;;; (featurep 'modules) => t; Arch, Debian and Ubuntu Emacs all have it).
 ;;; The first time you run SPC t t, ghostel offers to DOWNLOAD a prebuilt
-;;; native module (answer yes; no compiler/zig needed). It is kept in
-;;; ~/.config/emacs/ghostel/ (gitignored) so package upgrades don't wipe
-;;; it. On Linux the shell is simply $SHELL.
+;;; native module (answer yes; no compiler/zig needed). It is stored in
+;;; ghostel's own default place (inside its package directory); a package
+;;; upgrade may ask you to download it again. Do NOT point
+;;; `ghostel-module-directory' somewhere else without copying the module
+;;; there: ghostel then finds nothing, and if the download fails it fails
+;;; SILENTLY and you get "ghostel--new: void function".
+;;; On Linux the shell is simply $SHELL.
 
 (use-package ghostel
   :ensure t
-  :commands (ghostel ghostel-new)
+  :commands (ghostel)
   :custom
   ;; Evil's visual state (v) activates the mark; isearch and
   ;; minibuffer-exit move point off the live cursor. Ghostel's
@@ -23,8 +27,6 @@
   (ghostel-mouse-drag-input-mode nil)
   (ghostel-point-leave-input-mode nil)
   (ghostel-kill-buffer-on-exit t)
-  ;; Keep the downloaded native module out of elpa/ (see header).
-  (ghostel-module-directory (expand-file-name "ghostel/" user-emacs-directory))
   :config
   ;; The old eat-mode-hook turned these off; the ghostel equivalent was
   ;; missing, so terminals showed line numbers and scroll-margin.
