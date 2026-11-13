@@ -231,8 +231,8 @@
     "t k" #'suhas/terminal-kill
     "t K" #'suhas/terminal-kill-all
     "t p" #'suhas/terminal-set-position
-    ;;"t e" #'ghostel-line-mode         ; edit multi-line input (see README)
-    )
+    "t e" #'ghostel-emacs-mode       ; read/search/copy a multi-line paste (live, read-only)
+    "t i" #'ghostel-semi-char-mode)  ; back to typing in the shell
   
   ;; ── LSP / Errors ───────────────────────────────────────────
   (suhas/leader

@@ -162,21 +162,21 @@ Press `SPC` and wait half a second: **which-key** shows what can follow.
 | `SPC t k` | kill the current terminal (window closes if it was the last) |
 | `SPC t K` | kill all terminals in this perspective |
 | `SPC t p` | position: below / right |
-| `SPC t e` | line mode: edit multi-line input with normal Vim keys |
+| `SPC t e` | Emacs mode: live but read-only; move, search, copy with full Vim keys |
+| `SPC t i` | back to typing in the shell (semi-char mode; `C-c C-j` also works) |
 
 In the terminal, `ESC` goes to normal state at a prompt and is passed through to
 programs like vim/htop. `C-c C-t` or `C-x C-q` freezes the view so you can
 select and copy.
 
-**Multi-line input (pasted commands):** in *live* mode the shell owns the input
-line, so Evil editing is done by sending arrow keys/backspaces to it, and it
-only knows how to do that on the line the cursor is on (on another line, Up/Down
-mean *shell history*). For anything spanning several lines use **line mode**:
-`SPC t e` (or `C-c C-l`) *before* you paste. The input becomes an ordinary Emacs
-buffer region where every Vim key works; `RET` sends it, `S-RET` inserts a
-newline, `C-c C-j` returns to live mode. Prefer that to be the default? Set
-`suhas/terminal-start-in-line-mode` to `t` in `terminal.el` (full-screen programs
-such as vim/htop still get live keys automatically).
+**Multi-line input (pasted commands):** paste with `p` (normal state) or `C-y`
+(insert state): ghostel sends it as a *bracketed paste*, so the shell receives
+the whole block correctly. In live mode the shell owns the input line, so Vim
+editing only reaches the line the cursor is on (on other lines Up/Down mean
+shell history). When you want to inspect or navigate a multi-line paste, press
+`SPC t e` (Emacs mode: read-only, output keeps streaming, every Vim motion,
+search and `y` works), then `SPC t i` to resume typing. Ghostel's own *line
+mode* (`M-x ghostel-line-mode`) exists but is not bound by default.
 
 #### Code
 | Key | Action |
@@ -223,6 +223,9 @@ move. Most keys are unchanged; the ones that moved:
 | `q` / `ESC` | quit **and restore your previous window layout** |
 | `C-t` | toggle text mode (select/copy arbitrary text) |
 | `C-z` | flip this buffer to **plain Emacs state** (magit's native keys) |
+
+**Commit message buffer:** `:wq` / `:x` / `ZZ` / `C-c C-c` = commit, `:q` / `ZQ` / `C-c C-k` =
+abort, `:w` = only save the draft (git keeps waiting; finish later with `:wq`).
 
 To go back to stock magit everywhere, remove `magit` from the
 `evil-collection-init` list in `modules/evil.el`.
@@ -322,16 +325,12 @@ Otherwise open any file in it; project.el finds it from the file.
 **A key does nothing in some buffer.** Check the state (`C-z` toggles Emacs
 state). `C-h k <key>` shows what it is bound to.
 
-**Terminal won't start / `ghostel--new` is void / endless "downloading native
-module".** The Lisp half and the native module must be the same version, so
-`terminal.el` installs ghostel and evil-ghostel from the git tag in `:rev`
-(needs `git` on PATH; on Windows `C:/Program Files/Git/cmd` is added for you).
-If you used an older copy of this config, remove the stale MELPA copies once:
-delete `elpa/ghostel-*`, `elpa/evil-ghostel-*` and any `ghostel-module.*` /
-`ghostel-conpty-*` files inside them, then restart and answer `y` to the
-download prompt on the first `SPC t t`. Upgrading later: bump both `:rev`
-values, delete those two elpa folders, restart. `M-: (featurep 'modules)` must
-be `t`. Manual fallback: `M-x ghostel-download-module`.
+**Terminal won't start / `ghostel--new` is void.** The native module isn't loaded.
+Install ghostel the normal way (MELPA, as `terminal.el` does), never with
+`:vc`/package-vc, and never set `ghostel-module-directory`. Answer `d` to the
+download prompt on the first `SPC t t`. If it still fails: delete
+`elpa/ghostel-*` (and any stray `~/.emacs.d/ghostel/` folder), restart, retry.
+`M-: (featurep 'modules)` must be `t`.
 
 **`(void-variable evil-mode-buffers)` after every command.** Evil 1.15 on
 Emacs 31 reads a variable Emacs 31 no longer defines. `evil.el` defines it

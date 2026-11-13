@@ -32,17 +32,6 @@
               (display-line-numbers-mode -1)
               (setq-local scroll-margin 0))))
 
-;;(defvar suhas/terminal-start-in-line-mode nil
-;;  "Non-nil: new terminals start in ghostel's LINE mode.
-;;Line mode keeps your input in an ordinary Emacs buffer region, so every
-;;Evil key works on multi-line commands (live mode can only edit the cursor's
-;;own line). Full-screen programs still get live keys automatically.
-;;Toggle per terminal any time with `SPC t e'.")
-;;
-;;(with-eval-after-load 'ghostel
-;;  (when suhas/terminal-start-in-line-mode
-;;    (setq ghostel-initial-input-mode 'line)))
-
 (use-package evil-ghostel
   :ensure t
   :after (ghostel evil)

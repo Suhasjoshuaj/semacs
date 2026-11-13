@@ -25,6 +25,36 @@
   (setq magit-repository-directories
         (mapcar (lambda (dir) (cons dir 1)) (suhas/repo-roots))))
 
+;; ---------------------------------------------------------------------------
+;; Commit message buffers (COMMIT_EDITMSG, rebase todo, tag messages...)
+;; ---------------------------------------------------------------------------
+;; These are "with-editor" buffers: git is WAITING for Emacs, and only
+;; `with-editor-finish' (C-c C-c) or `with-editor-cancel' (C-c C-k) tells it
+;; to continue. A plain `:w' only writes the file -- git is never told, the
+;; commit does not happen. Evil's `:wq' / `:x' / `ZZ' / `:q' / `ZQ' closed the
+;; buffer WITHOUT informing git, leaving a half-dead session. Inside a
+;; with-editor buffer they now do the right thing:
+;;   :wq  :x  ZZ   -> finish (commit)
+;;   :q   :q!  ZQ  -> cancel (abort the commit)
+;;   :w            -> just save the draft (git keeps waiting; finish later)
+;; Everywhere else they behave exactly as before.
+(defun suhas/with-editor-finish-advice (orig &rest args)
+  "Around advice: finish the edit session in with-editor buffers."
+  (if (bound-and-true-p with-editor-mode)
+      (with-editor-finish nil)
+    (apply orig args)))
+
+(defun suhas/with-editor-cancel-advice (orig &rest args)
+  "Around advice: cancel the edit session in with-editor buffers."
+  (if (bound-and-true-p with-editor-mode)
+      (with-editor-cancel nil)
+    (apply orig args)))
+
+(with-eval-after-load 'evil
+  (advice-add 'evil-save-and-close          :around #'suhas/with-editor-finish-advice)
+  (advice-add 'evil-save-modified-and-close :around #'suhas/with-editor-finish-advice)
+  (advice-add 'evil-quit                    :around #'suhas/with-editor-cancel-advice))
+
 (use-package diff-hl
   :ensure t
   :defer t  ; 1. Explicitly tell Emacs not to touch this package at startup
