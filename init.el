@@ -8,6 +8,13 @@
 (setq use-package-verbose t)
 ;;(setq debug-on-error t)
 
+;; Where Customize and package.el write their settings. This MUST be set
+;; before the modules run: package.el records `package-selected-packages'
+;; (and package-vc its checkouts) right after every install, and with
+;; `custom-file' still unset it appends them to THIS file. The file is
+;; loaded at the very end (see CUSTOM FILE below).
+(setq custom-file (expand-file-name "custom.el" user-emacs-directory))
+
 ;; Package signature checking.
 ;;  * Windows: OFF. The gpg Emacs finds there is Git for Windows' MSYS gpg
 ;;    (terminal.el puts Git's usr/bin first on PATH), and it mangles the
@@ -122,9 +129,14 @@ and silently left lsp, langs, magit, org... unloaded."
 (defun suhas/open-config ()
   "Fuzzy-find a file inside the Emacs config directory."
   (interactive)
-  (let ((project-current-directory-override
-         (expand-file-name user-emacs-directory)))
-    (call-interactively #'project-find-file)))
+  (let ((dir (expand-file-name user-emacs-directory)))
+    (if (project-current nil dir)
+        (let ((project-current-directory-override dir))
+          (call-interactively #'project-find-file))
+      ;; Not a git repo / no .project marker: plain file picker instead of
+      ;; an error.
+      (let ((default-directory dir))
+        (call-interactively #'find-file)))))
 
 ;; Reload the config without restarting Emacs. init.el re-loads every
 ;; module, but hooks added with anonymous lambdas get added AGAIN, so
@@ -141,7 +153,6 @@ and silently left lsp, langs, magit, org... unloaded."
 
 ;; When you use M-x customize, Emacs writes settings to custom.el.
 ;; We redirect it here so init.el stays clean and hand-written.
-(setq custom-file (expand-file-name "custom.el" user-emacs-directory))
 (when (file-exists-p custom-file)
   (load custom-file))
 

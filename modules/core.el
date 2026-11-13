@@ -55,6 +55,16 @@
 (defconst suhas/windows-p (eq system-type 'windows-nt)
   "Non-nil when running native Windows Emacs (not WSL).")
 
+;; Windows: Emacs usually does not have Git's `cmd' directory on exec-path,
+;; and package.el needs `git' to install the version-pinned ghostel
+;; packages (terminal.el). This runs before any package is installed.
+(when suhas/windows-p
+  (let ((git-cmd "C:/Program Files/Git/cmd"))
+    (when (file-directory-p git-cmd)
+      (add-to-list 'exec-path git-cmd)
+      (setenv "PATH" (concat (subst-char-in-string ?/ ?\\ git-cmd)
+                             ";" (or (getenv "PATH") ""))))))
+
 ;;; ============================================================
 ;;; PERFORMANCE TUNING
 ;;; ============================================================

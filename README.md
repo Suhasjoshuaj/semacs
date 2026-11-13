@@ -168,14 +168,15 @@ In the terminal, `ESC` goes to normal state at a prompt and is passed through to
 programs like vim/htop. `C-c C-t` or `C-x C-q` freezes the view so you can
 select and copy.
 
-**Multi-line input (pasted commands):** Evil editing in the terminal works by
-sending arrow keys/backspaces to the shell, and only on the line the cursor is
-on. On another line of a multi-line paste, Up/Down mean *shell history*, so
-`i`/`c` jump to the end or pull in old commands. That is how ghostel's
-evil-ghostel is designed, not a config bug. For multi-line input use **line
-mode**: `SPC t e` (or `C-c C-l`) *before* you paste. The input becomes an
-ordinary Emacs buffer region where every Vim key works; `RET` sends it,
-`S-RET` inserts a newline, `C-c C-j` returns to live mode.
+**Multi-line input (pasted commands):** in *live* mode the shell owns the input
+line, so Evil editing is done by sending arrow keys/backspaces to it, and it
+only knows how to do that on the line the cursor is on (on another line, Up/Down
+mean *shell history*). For anything spanning several lines use **line mode**:
+`SPC t e` (or `C-c C-l`) *before* you paste. The input becomes an ordinary Emacs
+buffer region where every Vim key works; `RET` sends it, `S-RET` inserts a
+newline, `C-c C-j` returns to live mode. Prefer that to be the default? Set
+`suhas/terminal-start-in-line-mode` to `t` in `terminal.el` (full-screen programs
+such as vim/htop still get live keys automatically).
 
 #### Code
 | Key | Action |
@@ -321,17 +322,24 @@ Otherwise open any file in it; project.el finds it from the file.
 **A key does nothing in some buffer.** Check the state (`C-z` toggles Emacs
 state). `C-h k <key>` shows what it is bound to.
 
-**Terminal won't start / `ghostel--new` is a void function.** `M-: (featurep
-'modules)` must be `t`. That error means the native module isn't loaded. Ghostel's
-built-in downloader gives up *silently* on a slow or filtered connection (30 s
-timeout), so download it by hand:
-1. `M-: (ghostel--module-directory)` shows the folder the module must be in.
-2. From https://github.com/dakra/ghostel/releases pick the asset for your
-   platform (Windows: `ghostel-module-x86_64-windows.dll`).
-3. Save it in that folder named `ghostel-module.dll` (Linux: `ghostel-module.so`),
-   then restart Emacs.
+**Terminal won't start / `ghostel--new` is void / endless "downloading native
+module".** The Lisp half and the native module must be the same version, so
+`terminal.el` installs ghostel and evil-ghostel from the git tag in `:rev`
+(needs `git` on PATH; on Windows `C:/Program Files/Git/cmd` is added for you).
+If you used an older copy of this config, remove the stale MELPA copies once:
+delete `elpa/ghostel-*`, `elpa/evil-ghostel-*` and any `ghostel-module.*` /
+`ghostel-conpty-*` files inside them, then restart and answer `y` to the
+download prompt on the first `SPC t t`. Upgrading later: bump both `:rev`
+values, delete those two elpa folders, restart. `M-: (featurep 'modules)` must
+be `t`. Manual fallback: `M-x ghostel-download-module`.
 
-On Windows, Git for Windows must also be at `C:/Program Files/Git` (see `terminal.el`).
+**`(void-variable evil-mode-buffers)` after every command.** Evil 1.15 on
+Emacs 31 reads a variable Emacs 31 no longer defines. `evil.el` defines it
+(one `defvar`, near the top); nothing else to do.
+
+**Error in `:` (ex) prompt from Corfu.** Corfu is switched off in evil's `:`
+prompt and in terminals (`completion.el`); `TAB` completion of `:` commands is
+still evil's own.
 
 **Startup is slow.** `M-x emacs-init-time`, then read `*Messages*` (every
 package prints its load time). Usual suspects: the PATH import from your login

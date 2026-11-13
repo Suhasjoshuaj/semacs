@@ -189,7 +189,7 @@
   ;; opened before (that is how you reopen things without C-x C-f).
   (with-eval-after-load 'perspective
     (consult-customize consult-source-buffer :hidden t :default nil)
-
+    (consult-customize consult-source-recent-file :hidden t :default nil)
     ;; Define our own version outright instead of patching perspective's
     ;; internal plist — avoids racing perspective.el's own consult hook.
     (defvar persp-consult-source
@@ -235,6 +235,18 @@
 
 (use-package corfu
   :init
+  ;; No Corfu popup inside terminals: every keystroke there goes to the
+  ;; shell, and a dabbrev popup floating over the prompt only gets in the
+  ;; way of TAB / arrows / editing.
+  (setq global-corfu-modes '((not ghostel-mode) t))
+  ;; Corfu in the minibuffer, but NOT in Vertico prompts (Vertico has its
+  ;; own list) and NOT in evil's `:' prompt: `evil-ex-command-completion-
+  ;; at-point' signals args-out-of-range there under Corfu's auto timer.
+  ;; (evil's own TAB completion for `:' commands keeps working.)
+  (setq global-corfu-minibuffer
+        (lambda ()
+          (not (or (bound-and-true-p vertico--input)
+                   (bound-and-true-p evil-ex-current-buffer)))))
   (global-corfu-mode 1)
   :custom
   (corfu-auto t)           ; Show popup automatically while typing
@@ -274,5 +286,14 @@
   ;; Add dabbrev (completes words that appear elsewhere in the buffer)
   (add-to-list 'completion-at-point-functions #'cape-dabbrev t))
 
+;; Safety net: evil's ex command completion reads a text property one
+;; position before point and signals args-out-of-range on an empty or
+;; freshly seeded `:' line. A failed completion should simply offer
+;; nothing, not raise an error.
+(with-eval-after-load 'evil-ex
+  (advice-add 'evil-ex-command-completion-at-point :around
+              (lambda (fn &rest args)
+                (condition-case nil (apply fn args)
+                  (args-out-of-range nil)))))
 
 ;;; completion.el ends here

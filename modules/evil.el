@@ -7,6 +7,15 @@
 (defvar suhas/vim-mode-enabled t
   "Whether to use Vim keybindings (evil-mode). Toggle with suhas/toggle-vim-mode.")
 
+;; Emacs 31 + Evil 1.15: `define-globalized-minor-mode' no longer defines
+;; the deferred-buffer queue `evil-mode-buffers', but Evil's own
+;; `evil-initializing-p' (called from `evil-normal-post-command') still
+;; reads it -> "(void-variable evil-mode-buffers)" after every command.
+;; An empty legacy queue restores the old behaviour. `defvar' never
+;; overwrites a value that is already bound, so this is harmless on
+;; Emacs 30 and on any Evil that defines the variable itself.
+(defvar evil-mode-buffers nil)
+
 (use-package evil
   :defer t  ; 1. Tells use-package NOT to load evil at startup
   :init
@@ -222,7 +231,8 @@
     "t k" #'suhas/terminal-kill
     "t K" #'suhas/terminal-kill-all
     "t p" #'suhas/terminal-set-position
-    "t e" #'ghostel-line-mode)         ; edit multi-line input (see README)
+    ;;"t e" #'ghostel-line-mode         ; edit multi-line input (see README)
+    )
   
   ;; ── LSP / Errors ───────────────────────────────────────────
   (suhas/leader

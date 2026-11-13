@@ -1,15 +1,15 @@
 ;;; terminal.el --- ghostel terminal (Windows AND Linux) -*- lexical-binding: t; -*-
 ;;;
-;;; One terminal backend on every OS: ghostel (libghostty). `eat' is gone.
+;;; One terminal backend on every OS: ghostel (libghostty).
 ;;; Requirements: Emacs built with dynamic-module support (check:
-;;; (featurep 'modules) => t; Arch, Debian and Ubuntu Emacs all have it).
+;;; (featurep 'modules) => t).
 ;;; The first time you run SPC t t, ghostel offers to DOWNLOAD a prebuilt
-;;; native module (answer yes; no compiler/zig needed). It is stored in
+;;; native module (answer d / yes; no compiler/zig needed). It is stored in
 ;;; ghostel's own default place (inside its package directory); a package
 ;;; upgrade may ask you to download it again. Do NOT point
-;;; `ghostel-module-directory' somewhere else without copying the module
-;;; there: ghostel then finds nothing, and if the download fails it fails
-;;; SILENTLY and you get "ghostel--new: void function".
+;;; `ghostel-module-directory' somewhere else, and do NOT install ghostel
+;;; with :vc / package-vc: the module then lands in a folder the loader does
+;;; not read and you get "ghostel--new: void function".
 ;;; On Linux the shell is simply $SHELL.
 
 (use-package ghostel
@@ -19,8 +19,7 @@
   ;; Evil's visual state (v) activates the mark; isearch and
   ;; minibuffer-exit move point off the live cursor. Ghostel's
   ;; defaults treat any of those as "user wants to read/copy" and
-  ;; silently freeze the buffer into copy-mode -- a mode evil's
-  ;; own i/a/ESC don't know how to exit. nil keeps semi-char (live
+  ;; silently freeze the buffer into copy-mode. nil keeps semi-char (live
   ;; typing) active through all three; use `C-c C-t' / `C-x C-q'
   ;; when you actually do want the frozen, selectable view.
   (ghostel-mark-activation-input-mode nil)
@@ -28,23 +27,29 @@
   (ghostel-point-leave-input-mode nil)
   (ghostel-kill-buffer-on-exit t)
   :config
-  ;; The old eat-mode-hook turned these off; the ghostel equivalent was
-  ;; missing, so terminals showed line numbers and scroll-margin.
   (add-hook 'ghostel-mode-hook
             (lambda ()
               (display-line-numbers-mode -1)
               (setq-local scroll-margin 0))))
+
+;;(defvar suhas/terminal-start-in-line-mode nil
+;;  "Non-nil: new terminals start in ghostel's LINE mode.
+;;Line mode keeps your input in an ordinary Emacs buffer region, so every
+;;Evil key works on multi-line commands (live mode can only edit the cursor's
+;;own line). Full-screen programs still get live keys automatically.
+;;Toggle per terminal any time with `SPC t e'.")
+;;
+;;(with-eval-after-load 'ghostel
+;;  (when suhas/terminal-start-in-line-mode
+;;    (setq ghostel-initial-input-mode 'line)))
 
 (use-package evil-ghostel
   :ensure t
   :after (ghostel evil)
   :hook (ghostel-mode . evil-ghostel-mode)
   :custom
-  ;; 'auto (the default): ESC -> normal state at a plain shell
-  ;; prompt (standard vim ESC/i/a/v), and ESC -> forwarded to the
-  ;; app while an alt-screen program (vim, less, htop) is running,
-  ;; so nested apps still work normally too. Left explicit here so
-  ;; it's obvious this was a deliberate choice, not an oversight.
+  ;; 'auto: ESC -> normal state at a plain shell prompt, and ESC -> the
+  ;; app while vim/less/htop is running.
   (evil-ghostel-escape 'auto))
 
 ;; ---------------------------------------------------------------------------

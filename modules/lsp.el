@@ -38,7 +38,7 @@
   (add-to-list 'eglot-server-programs
                '(rust-mode . ("rust-analyzer")))
   (add-to-list 'eglot-server-programs
-               '((c-mode c++-mode) . ("clangd" "--background-index")))
+               '((c-mode c++-mode) . ("clangd" "--background-index" "--query-driver=C:/msys64/ucrt64/bin/g++.exe")))
   (add-to-list 'eglot-server-programs
                '(java-mode . ("jdtls")))
   (add-to-list 'eglot-server-programs
