@@ -162,21 +162,17 @@ Press `SPC` and wait half a second: **which-key** shows what can follow.
 | `SPC t k` | kill the current terminal (window closes if it was the last) |
 | `SPC t K` | kill all terminals in this perspective |
 | `SPC t p` | position: below / right |
-| `SPC t e` | Emacs mode: live but read-only; move, search, copy with full Vim keys |
-| `SPC t i` | back to typing in the shell (semi-char mode; `C-c C-j` also works) |
 
 In the terminal, `ESC` goes to normal state at a prompt and is passed through to
 programs like vim/htop. `C-c C-t` or `C-x C-q` freezes the view so you can
 select and copy.
 
 **Multi-line input (pasted commands):** paste with `p` (normal state) or `C-y`
-(insert state): ghostel sends it as a *bracketed paste*, so the shell receives
-the whole block correctly. In live mode the shell owns the input line, so Vim
-editing only reaches the line the cursor is on (on other lines Up/Down mean
-shell history). When you want to inspect or navigate a multi-line paste, press
-`SPC t e` (Emacs mode: read-only, output keeps streaming, every Vim motion,
-search and `y` works), then `SPC t i` to resume typing. Ghostel's own *line
-mode* (`M-x ghostel-line-mode`) exists but is not bound by default.
+(insert state); ghostel sends it as a bracketed paste, so the shell receives the
+whole block. In live mode Vim editing only reaches the line the cursor is on
+(on other lines Up/Down mean shell history). To edit a multi-line command
+properly, press `C-c v` to switch Vim mode off (plain Emacs keys), edit, and
+`C-c v` again to switch it back on.
 
 #### Code
 | Key | Action |
@@ -201,34 +197,39 @@ mode* (`M-x ghostel-line-mode`) exists but is not bound by default.
 
 ---
 
-## Magit, the Vim way
+## Magit
 
-Magit buffers now start in **normal state** (evil-collection-magit), so `j/k`
-move. Most keys are unchanged; the ones that moved:
+Every magit buffer (status, log, diff, revision, process, refs, stash, repo
+list...) runs in plain **Emacs state** with magit's own native keys; press `?`
+in any of them for the full list. Evil's vim-style magit layer is not used, so
+nothing is remapped. The commit-message buffer is the exception: it is a text
+editor, so it keeps Vim keys (see below).
 
 | Key | Action |
 |---|---|
-| `j` / `k` | down / up by line |
-| `C-j` / `C-k` | next / previous **section** (was `n` / `p`) |
-| `gj` / `gk` | next / previous sibling section |
+| `n` / `p` | next / previous line (section-aware) |
 | `TAB` | fold / unfold section |
-| `s` / `u` | stage / unstage (file, hunk, or a `v` selection) |
-| `x` | **discard** (was `k`) |
+| `s` / `u` | stage / unstage (file, hunk, or a region) |
+| `k` | **discard** |
 | `c` | commit menu (`c c` to commit) |
 | `P` / `F` / `f` | push / pull / fetch menus |
 | `b` / `l` / `d` / `z` / `r` | branch / log / diff / stash / rebase menus |
-| `gr` | refresh (was `g`) |
-| `-` | revert (was `v`) |
-| `?` | help popup listing everything |
-| `q` / `ESC` | quit **and restore your previous window layout** |
-| `C-t` | toggle text mode (select/copy arbitrary text) |
-| `C-z` | flip this buffer to **plain Emacs state** (magit's native keys) |
+| `g` | refresh |
+| `q` | quit **and restore your previous window layout** |
+| `SPC k` | **kill** this magit buffer (and restore the layout) |
+| `SPC SPC` | `consult-buffer` |
+| `SPC r` / `f` / `g` / `G` / `p` | recent files / find file / grep project / grep everywhere / switch project |
+| `C-v` / `M-v` | scroll down / up (`SPC` is the leader now; `DEL` still scrolls up) |
+| `C-,` `C-;` `C-'` | last buffer / next / previous code buffer (global) |
 
-**Commit message buffer:** `:wq` / `:x` / `ZZ` / `C-c C-c` = commit, `:q` / `ZQ` / `C-c C-k` =
-abort, `:w` = only save the draft (git keeps waiting; finish later with `:wq`).
+**Commit message buffer:** `:wq` / `:x` / `ZZ` / `C-c C-c` = commit, `:q` / `ZQ` /
+`C-c C-k` = abort, `:w` = only save the draft (git keeps waiting; finish later
+with `:wq`).
 
-To go back to stock magit everywhere, remove `magit` from the
-`evil-collection-init` list in `modules/evil.el`.
+To go back to the vim-style magit (evil-collection-magit): in `modules/evil.el`
+add `magit` to the `evil-collection-init` list and delete the two
+`evil-set-initial-state 'magit-...` lines and the two `magit` `define-key` blocks in
+the "SPECIAL BUFFER STATES" section.
 
 ---
 
@@ -237,7 +238,7 @@ To go back to stock magit everywhere, remove `magit` from the
 On by default (Evil). Toggle with `SPC c v` / `C-c v`; off gives normal Emacs
 keys (`C-n/p`, `C-a/e`, …).
 
-- ibuffer, compile, magit, xref and speedbar get full Vim-style bindings from
+- ibuffer, compile, xref and speedbar get full Vim-style bindings from
   evil-collection. **dired and Info stay in Emacs state** with their native
   keys (dired: `i` insert subdirectory, `a` open in this buffer, `o` sort,
   `m`/`u`/`d` mark, `C-x C-q` editable dired).
@@ -375,7 +376,7 @@ gnu-elpa-keyring-update`, then set it back (`init.el` does that on restart).
 1. **Week 1:** Vim motions (`hjkl`, `w b e`, `i a`, `v`, `d y p`, `ciw`).
 2. **Week 2:** the finding model above: `SPC SPC`, `SPC p p`, `SPC s f`,
    `SPC s g`. Stop using `C-x C-f`.
-3. **Week 3:** magit daily: `SPC g s`, `s`, `c c`, `P`. Learn `C-j` / `C-k`.
+3. **Week 3:** magit daily: `SPC g s`, `s`, `c c`, `P` (press `?` for the rest).
 4. **Week 4:** code navigation: `gd`, `M-,`, `M-?`, `SPC e a`, `SPC s i`.
 5. **Then:** read one module per weekend. Every file is commented.
 

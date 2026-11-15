@@ -68,17 +68,17 @@
 ;; Scoped to the modes where you want the full vim-style binding set:
 ;;   ibuffer         marking/deleting need this to work at all
 ;;   compile         you use it directly
-;;   magit           magit buffers now start in NORMAL state: j/k move,
-;;                   C-j/C-k hop between sections, s/u stage/unstage,
-;;                   x discard, c commit... and C-z flips the current
-;;                   magit buffer to plain Emacs state if you want magit's
-;;                   own keys (n/p, k) for a moment. See README.
+;;   magit           NOT here: magit buffers run in plain EMACS state with
+;;                   magit's own native keys (n/p, s/u, k, c...). See
+;;                   "SPECIAL BUFFER STATES" below. To go back to the vim-style
+;;                   magit, add `magit' to the list below and delete the
+;;                   magit lines in that section.
 ;;   xref            RET on a result works (evil's RET used to shadow it)
 ;; Everything else gets a lighter touch below.
 (use-package evil-collection
   :after evil
   :config
-  (evil-collection-init '(ibuffer compile speedbar magit xref)))
+  (evil-collection-init '(ibuffer compile speedbar xref)))
 
 ;; help and flymake diagnostics: you don't use these enough to
 ;; want their full mnemonic binding set (gj/go/]]/etc.), just vim
@@ -230,9 +230,7 @@
     "t r" #'suhas/terminal-rename
     "t k" #'suhas/terminal-kill
     "t K" #'suhas/terminal-kill-all
-    "t p" #'suhas/terminal-set-position
-    "t e" #'ghostel-emacs-mode       ; read/search/copy a multi-line paste (live, read-only)
-    "t i" #'ghostel-semi-char-mode)  ; back to typing in the shell
+    "t p" #'suhas/terminal-set-position)
   
   ;; ── LSP / Errors ───────────────────────────────────────────
   (suhas/leader
@@ -334,7 +332,7 @@
 ;;; SPECIAL BUFFER STATES
 ;;; ============================================================
 
-;; magit / xref / ibuffer / compile / speedbar get their vim bindings AND
+;; xref / ibuffer / compile / speedbar get their vim bindings AND
 ;; their initial state from evil-collection (list above).
 ;;
 ;; dired and Info stay in EMACS state, keeping their native keys:
@@ -346,21 +344,44 @@
 ;; no mode at all, so that line never did anything.
 (with-eval-after-load 'evil
   (evil-set-initial-state 'dired-mode 'emacs)
-  (evil-set-initial-state 'Info-mode 'emacs))
+  (evil-set-initial-state 'Info-mode 'emacs)
+  ;; Magit: every magit buffer (status, log, diff, revision, process, refs,
+  ;; stash, cherry, log-select...) derives from `magit-mode', so one line
+  ;; covers them all. The repo list is a tabulated-list, so it is separate.
+  ;; Commit-message buffers (git-commit-mode) are NOT magit-mode: they stay
+  ;; in normal state, because there you are just editing text.
+  (evil-set-initial-state 'magit-mode 'emacs)
+  (evil-set-initial-state 'magit-repolist-mode 'emacs))
 
-;; Emacs state has no SPC leader, so dired gets a small one of its own
-;; (SPC, then one key). Buffer cycling (C-; C-' C-,) and C-c f / C-c g
-;; are global, so they already work here.
+;; Emacs state has no SPC leader, so dired and magit share a small one of
+;; their own (SPC, then one key). Buffer cycling (C-; C-' C-,) and C-c f /
+;; C-c g are global, so they already work in those buffers too.
+(defun suhas/kill-buffer-here ()
+  "Kill this buffer. In magit buffers, also restore the window layout
+from before magit opened (same as `q', but the buffer is killed)."
+  (interactive)
+  (if (derived-mode-p 'magit-mode)
+      (magit-mode-bury-buffer t)
+    (kill-current-buffer)))
+
+(define-prefix-command 'suhas/emacs-leader-map)
+(define-key suhas/emacs-leader-map (kbd "SPC") #'consult-buffer)
+(define-key suhas/emacs-leader-map (kbd "k") #'suhas/kill-buffer-here)
+(define-key suhas/emacs-leader-map (kbd "r") #'consult-recent-file)
+(define-key suhas/emacs-leader-map (kbd "f") #'suhas/find-file-everywhere)
+(define-key suhas/emacs-leader-map (kbd "g") #'suhas/grep-project)
+(define-key suhas/emacs-leader-map (kbd "G") #'suhas/grep-everywhere)
+(define-key suhas/emacs-leader-map (kbd "p") #'suhas/project-switch)
+
 (with-eval-after-load 'dired
-  (define-prefix-command 'suhas/dired-leader-map)
-  (define-key dired-mode-map (kbd "SPC") #'suhas/dired-leader-map)
-  (define-key suhas/dired-leader-map (kbd "SPC") #'consult-buffer)
-  (define-key suhas/dired-leader-map (kbd "k") #'kill-current-buffer)
-  (define-key suhas/dired-leader-map (kbd "r") #'consult-recent-file)
-  (define-key suhas/dired-leader-map (kbd "f") #'suhas/find-file-everywhere)
-  (define-key suhas/dired-leader-map (kbd "g") #'suhas/grep-project)
-  (define-key suhas/dired-leader-map (kbd "G") #'suhas/grep-everywhere)
-  (define-key suhas/dired-leader-map (kbd "p") #'suhas/project-switch))
+  (define-key dired-mode-map (kbd "SPC") #'suhas/emacs-leader-map))
+
+;; In magit, SPC used to scroll the diff down; that is now `C-v' / `M-v'
+;; (DEL still scrolls back up).
+(with-eval-after-load 'magit-mode
+  (define-key magit-mode-map (kbd "SPC") #'suhas/emacs-leader-map))
+(with-eval-after-load 'magit-repos
+  (define-key magit-repolist-mode-map (kbd "SPC") #'suhas/emacs-leader-map))
 
 ;;; ============================================================
 ;;; WHICH-KEY — shows what can follow SPC (or any prefix) after a pause

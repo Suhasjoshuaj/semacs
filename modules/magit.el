@@ -2,9 +2,9 @@
 ;; Magit is on NonGNU ELPA / MELPA. If it can't be installed, simply don't
 ;; use SPC g s.
 ;;
-;; Keys: magit buffers use evil-collection-magit (see evil.el), i.e. they
-;; start in NORMAL state. Cheat sheet in README.md. C-z = temporary
-;; Emacs state inside a magit buffer.
+;; Keys: magit buffers run in plain EMACS state with magit's native keys
+;; (set in evil.el, "SPECIAL BUFFER STATES"); SPC k kills one, SPC SPC is
+;; consult-buffer. Cheat sheet in README.md.
 
 (use-package magit
   :ensure t
