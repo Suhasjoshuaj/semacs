@@ -11,6 +11,11 @@
 ;;; with :vc / package-vc: the module then lands in a folder the loader does
 ;;; not read and you get "ghostel--new: void function".
 ;;; On Linux the shell is simply $SHELL.
+;;;
+;;; Position/size knobs (`suhas/terminal-position' and friends) live in
+;;; settings.el; override them in local.el.
+
+(require 'cl-lib)
 
 (use-package ghostel
   :ensure t
@@ -27,10 +32,12 @@
   (ghostel-point-leave-input-mode nil)
   (ghostel-kill-buffer-on-exit t)
   :config
-  (add-hook 'ghostel-mode-hook
-            (lambda ()
-              (display-line-numbers-mode -1)
-              (setq-local scroll-margin 0))))
+  (add-hook 'ghostel-mode-hook #'suhas/ghostel-buffer-setup))
+
+(defun suhas/ghostel-buffer-setup ()
+  "Per-terminal-buffer tweaks: no line numbers, no scroll margin."
+  (display-line-numbers-mode -1)
+  (setq-local scroll-margin 0))
 
 (use-package evil-ghostel
   :ensure t
@@ -43,9 +50,12 @@
 
 ;; ---------------------------------------------------------------------------
 ;; Windows only: run Git Bash inside ghostel.
+;; (Git's location: `suhas/git-for-windows-root' in settings.el.)
 ;; ---------------------------------------------------------------------------
-(when suhas/windows-p
-  (let* ((git-root "C:/Program Files/Git")
+(when (and suhas/windows-p
+           suhas/git-for-windows-root
+           (file-directory-p suhas/git-for-windows-root))
+  (let* ((git-root suhas/git-for-windows-root)
          (usr-bin (concat git-root "/usr/bin"))
          (mingw-bin (concat git-root "/mingw64/bin"))
          (bash (concat usr-bin "/bash.exe")))
@@ -66,8 +76,8 @@
       (unless (member dir exec-path)
         (push dir exec-path)))
 
-    ;; delete-dups: `suhas/reload-config' used to prepend these two
-    ;; directories to PATH again on every reload.
+    ;; delete-dups: reloading the config must not prepend these directories
+    ;; to PATH again.
     (setenv
      "PATH"
      (mapconcat
@@ -89,16 +99,9 @@
 (defvar suhas/terminal-mode 'ghostel-mode
   "Major mode of the terminal backend (ghostel on every platform).")
 
-(defvar suhas/terminal-position 'below
-  "Where the terminal window is placed: `below' or `right'.
-Set via `suhas/terminal-set-position' (SPC t p), not by hand --
-that function also relocates an already-open terminal window.")
-
-(defvar suhas/terminal-height-fraction (if suhas/windows-p 0.28 0.32)
-  "Fraction of frame height the terminal gets when split below.")
-
-(defvar suhas/terminal-width-fraction 0.35
-  "Fraction of frame width the terminal gets when split right.")
+;; (`suhas/terminal-mode' is internal. Position and size defaults --
+;; `suhas/terminal-position', `suhas/terminal-height-fraction',
+;; `suhas/terminal-width-fraction' -- are in settings.el.)
 
 (defun suhas/terminal-buffer-p (buf)
   (and (buffer-live-p buf)
@@ -193,13 +196,20 @@ was on screen before the collapse."
 
      (t (suhas/terminal--split!)))))
 
-(defun suhas/terminal-spawn (&optional name)
-  "Create a brand-new terminal instance, optionally naming it."
+(defun suhas/terminal-spawn (&optional name argv)
+  "Create a brand-new terminal instance, optionally named NAME.
+ARGV, a list (PROGRAM ARG...), runs that instead of the default shell:
+it is bound to `ghostel-shell' for the duration of the spawn, so when the
+program exits the terminal (and its buffer) goes away with it."
   (suhas/terminal-ensure-window)
   ;; A non-numeric prefix arg ('(4) = C-u) makes `ghostel' create a NEW
-  ;; buffer instead of reusing *ghostel*. Passed directly now; the old
-  ;; code faked it with `call-interactively' + a bound current-prefix-arg.
-  (ghostel '(4))
+  ;; buffer instead of reusing *ghostel*. `cl-progv' binds DYNAMICALLY, which
+  ;; a plain `let' would not do for a variable defined by a package that
+  ;; may not be loaded yet.
+  (if argv
+      (cl-progv '(ghostel-shell) (list argv)
+        (ghostel '(4)))
+    (ghostel '(4)))
   (when name
     (rename-buffer (format "*term:%s*" name) t)))
 
@@ -307,5 +317,27 @@ the terminal running.)"
         (unless (string-empty-p name)
           (with-current-buffer target
             (rename-buffer (format "*term:%s*" name) t)))))))
+
+(defun suhas/terminal-escape-to-app ()
+  "Make ESC in THIS terminal buffer go to the program running in it.
+Needed for TUIs that live on the normal screen (Claude Code does): evil-ghostel's
+`auto' mode only forwards ESC for alt-screen programs (vim, less, htop),
+so for these buffers we pin it to `terminal'. Undo with `suhas/terminal-toggle-escape'."
+  (when (and (bound-and-true-p evil-ghostel-mode)
+             (fboundp 'evil-ghostel-toggle-send-escape))
+    (evil-ghostel-toggle-send-escape 2)))
+
+(defun suhas/terminal-toggle-escape ()
+  "SPC t e / C-c e -- cycle where ESC goes in this terminal: auto -> app -> evil.
+`auto' = evil at a shell prompt, app inside vim/less/htop. `terminal' = always
+the app (use for Claude Code). `evil' = always leave insert state."
+  (interactive)
+  (if (and (derived-mode-p 'ghostel-mode)
+           (fboundp 'evil-ghostel-toggle-send-escape))
+      (evil-ghostel-toggle-send-escape)
+    (user-error "Not in a ghostel terminal buffer")))
+
+;; Works in insert state inside a terminal, where SPC is not a leader.
+(global-set-key (kbd "C-c e") #'suhas/terminal-toggle-escape)
 
 (provide 'terminal)

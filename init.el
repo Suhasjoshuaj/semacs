@@ -1,164 +1,129 @@
 ;;; init.el --- Entry point. Loads modules in dependency order.  -*- lexical-binding: t; -*-
 ;;; NO configuration lives here. This file is a table of contents.
-;;; All actual configuration lives in separate modules.
+;;;
+;;;   early-init.el   before the frame exists (GC, chrome)
+;;;   modules/settings.el   defaults for every knob
+;;;   local.el              YOUR overrides (untracked; see local.example.el)
+;;;   modules/core.el       package manager + sane defaults
+;;;   modules/*.el          one concern each, in the order of `suhas/modules'
 
 ;; Per-package load timing goes to *Messages*. Turn this off once your
-;; startup is tuned (or run `M-x use-package-report' after setting
-;; `use-package-compute-statistics' to t for a table of load times).
+;; startup is tuned, or use `M-x use-package-report'.
 (setq use-package-verbose t)
 ;;(setq debug-on-error t)
 
 ;; Where Customize and package.el write their settings. This MUST be set
 ;; before the modules run: package.el records `package-selected-packages'
-;; (and package-vc its checkouts) right after every install, and with
-;; `custom-file' still unset it appends them to THIS file. The file is
-;; loaded at the very end (see CUSTOM FILE below).
+;; right after every install, and with `custom-file' unset it appends them
+;; to THIS file. The file is loaded at the very end (see CUSTOM FILE below).
 (setq custom-file (expand-file-name "custom.el" user-emacs-directory))
 
-;; Package signature checking.
-;;  * Windows: OFF. The gpg Emacs finds there is Git for Windows' MSYS gpg
-;;    (terminal.el puts Git's usr/bin first on PATH), and it mangles the
-;;    Windows keyring path ("/c/Program Files/Emacs/c:/Users/.../pubring.kbx:
-;;    No such file"), so verification can never succeed. Downloads still
-;;    go over HTTPS; MELPA is unsigned anyway.
-;;  * Elsewhere: ON for signed archives (`allow-unsigned' only tolerates
-;;    archives that publish no signature, i.e. MELPA). If it ever fails
-;;    with "No public key for 645357D2883A0966": set it to nil once, then
-;;    M-x package-install RET gnu-elpa-keyring-update, and restore it.
-(setq package-check-signature
-      (if (eq system-type 'windows-nt) nil 'allow-unsigned))
+;;; ============================================================
+;;; MODULE LOADER
+;;; ============================================================
 
-;; Show startup time and package count
+(defun suhas/load-module (name)
+  "Load modules/NAME.el. A missing file or an error is REPORTED, not fatal.
+The module's name is remembered in `suhas/failed-modules' for
+`suhas/doctor'."
+  (let ((file (expand-file-name (concat "modules/" name ".el") user-emacs-directory)))
+    (if (not (file-exists-p file))
+        (progn
+          (add-to-list 'suhas/failed-modules name t)
+          (display-warning 'semacs
+                           (format "Module `%s' not found: %s does not exist. \
+Is the whole modules/ folder from the zip present?" name file)
+                           :error))
+      (condition-case err
+          (load file nil t)
+        (error
+         (add-to-list 'suhas/failed-modules name t)
+         (display-warning 'semacs
+                          (format "Module `%s' failed to load: %s"
+                                  name (error-message-string err))
+                          :error))))))
+
+(defun suhas/load-local ()
+  "Load local.el (your machine-specific overrides) if it exists."
+  (let ((file (expand-file-name "local.el" user-emacs-directory)))
+    (when (file-exists-p file)
+      (condition-case err
+          (load file nil t)
+        (error
+         (display-warning 'semacs
+                          (format "local.el failed: %s" (error-message-string err))
+                          :error))))))
+
+;;; ============================================================
+;;; SETTINGS, THEN LOCAL OVERRIDES
+;;; ============================================================
+
+(setq suhas/failed-modules nil)
+(suhas/load-module "settings")
+;; Everything below reads variables that settings.el defines. Without it
+;; the config cannot work, so stop with ONE clear message instead of a
+;; cascade of "void variable" errors.
+(unless (boundp 'suhas/modules)
+  (error "semacs: modules/settings.el is missing or failed to load (looked in %s)"
+         (expand-file-name "modules/" user-emacs-directory)))
+(suhas/load-local)
+
+;; Package signature checking (reasoning: see `suhas/package-check-signature').
+(setq package-check-signature suhas/package-check-signature)
+
+;;; ============================================================
+;;; STARTUP DIAGNOSTICS AND GC
+;;; ============================================================
+
 (defun suhas/display-startup-time ()
+  "Report startup time and package count in *Messages*."
   (message "Emacs loaded %d packages in %.2f seconds with %d garbage collections."
            (length package-activated-list)
            (float-time (time-subtract after-init-time before-init-time))
            gcs-done))
 (add-hook 'emacs-startup-hook #'suhas/display-startup-time)
 
-;;; ============================================================
-;;; GC RESET — Bring garbage collection back to normal
-;;; ============================================================
+;; early-init.el set the GC threshold huge to speed up startup. Now that
+;; the frame exists and packages are loaded, bring it back to something
+;; reasonable: 8MB is big enough not to stutter, small enough not to pause.
+(defun suhas/gc-reset ()
+  "Restore normal garbage-collection settings after startup."
+  (setq gc-cons-threshold (* 8 1024 1024)
+        gc-cons-percentage 0.1))
+(add-hook 'emacs-startup-hook #'suhas/gc-reset)
 
-;; early-init.el set gc-cons-threshold to a huge value to speed up startup.
-;; Now that the frame exists and packages are loaded, we reset it to a
-;; reasonable value. 8MB is aggressive enough to not cause stuttering
-;; but not so aggressive that it pauses during editing.
-(add-hook 'emacs-startup-hook
-          (lambda ()
-            (setq gc-cons-threshold (* 8 1024 1024)
-                  gc-cons-percentage 0.1)))
-
-;;; ============================================================
-;;; LSP PROCESS OUTPUT — Increase buffer for large JSON blobs
-;;; ============================================================
-
-;; Language servers send massive JSON responses (completions, diagnostics, etc).
-;; The default 4KB read buffer causes constant chunking and slowdown.
-;; 1MB handles even hefty LSP responses without breaking a sweat.
+;; Language servers send big JSON blobs; the 4KB default read buffer makes
+;; completion and diagnostics chunk constantly.
 (setq read-process-output-max (* 1024 1024))
-
-;;; ============================================================
-;;; MODULE LOADER — Simple function to load modules
-;;; ============================================================
-
-;; We organize config into separate files for clarity.
-;; This function loads them from the modules/ subdirectory.
-(defun suhas/load-module (name)
-  "Load modules/NAME.el. An error in one module is REPORTED, not fatal.
-Before this, one typo in (say) terminal.el aborted init.el right there
-and silently left lsp, langs, magit, org... unloaded."
-  (condition-case err
-      (load (expand-file-name (concat "modules/" name ".el") user-emacs-directory)
-            nil t)
-    (error
-     (display-warning 'semacs
-                      (format "Module `%s' failed to load: %s"
-                              name (error-message-string err))
-                      :error))))
 
 ;;; ============================================================
 ;;; LOAD ORDER — Matters! Don't reorder casually.
 ;;; ============================================================
 
-;; 1. CORE — Package manager + sane defaults. Must come first.
+;; CORE always loads first and cannot be switched off.
 (suhas/load-module "core")
 
-;; 2. UI — Themes, fonts, modeline. Loaded early so visuals are ready.
-(suhas/load-module "ui")
-
-;; 3. COMPLETION — Vertico, Marginalia, Consult. Minimal but fast.
-(suhas/load-module "completion")
-
-;; 3b. SEARCH — Projects, find-file-anywhere, grep, xref, recent files.
-;;     Needs consult (completion) and project.el (built in).
-(suhas/load-module "search")
-
-;; 4. EVIL — Vim layer. Loaded after UI (needs escape behavior defined).
-(suhas/load-module "evil")
-
-;; 5. TERMINAL — ghostel terminal emulator (Windows AND Linux).
-(suhas/load-module "terminal")
-
-;; 6. LSP — Eglot language server client. Auto-installs servers.
-(suhas/load-module "lsp")
-
-;; 7. LANGS — Per-language config (file associations, compile flags, etc).
-(suhas/load-module "langs")
-
-;; 8. BUFFER-NAV — Smart buffer rotation (C-; and C-,).
-(suhas/load-module "buffer-nav")
-
-;; 9. WINDOW-MGMT — Tab-bar workspaces and window management.
-(suhas/load-module "window-mgmt")
-
-;; 10. COMPILE — Compile command bindings and setup.
-(suhas/load-module "compile")
-
-(suhas/load-module "formatter")
-(suhas/load-module "magit")
-(suhas/load-module "org")
- 
-;;; ============================================================
-;;; UTILITY FUNCTIONS
-;;; ============================================================
-
-;; Jump to init.el for quick config editing.
-;; SPC c e: fuzzy-pick ANY file of this config (init.el, modules/*.el,
-;; README...) instead of always landing on init.el.
-(defun suhas/open-config ()
-  "Fuzzy-find a file inside the Emacs config directory."
-  (interactive)
-  (let ((dir (expand-file-name user-emacs-directory)))
-    (if (project-current nil dir)
-        (let ((project-current-directory-override dir))
-          (call-interactively #'project-find-file))
-      ;; Not a git repo / no .project marker: plain file picker instead of
-      ;; an error.
-      (let ((default-directory dir))
-        (call-interactively #'find-file)))))
-
-;; Reload the config without restarting Emacs. init.el re-loads every
-;; module, but hooks added with anonymous lambdas get added AGAIN, so
-;; after many reloads a restart is the only truly clean slate.
-(defun suhas/reload-config ()
-  "Reload init.el (and therefore every module)."
-  (interactive)
-  (load (expand-file-name "init.el" user-emacs-directory))
-  (message "Config reloaded."))
+;; Everything else: the list lives in settings.el (override in local.el).
+(dolist (module suhas/modules)
+  (suhas/load-module module))
 
 ;;; ============================================================
 ;;; CUSTOM FILE — Isolate auto-generated settings
 ;;; ============================================================
 
-;; When you use M-x customize, Emacs writes settings to custom.el.
-;; We redirect it here so init.el stays clean and hand-written.
+;; M-x customize (and the theme menu) write to custom.el, not to this file.
 (when (file-exists-p custom-file)
   (load custom-file))
 
 ;; Fresh machine (no custom.el yet) or a saved theme that no longer
 ;; exists: fall back to a built-in theme instead of the default white.
 (unless custom-enabled-themes
-  (load-theme 'modus-vivendi t))
+  (load-theme suhas/default-theme t))
+
+(when suhas/failed-modules
+  (display-warning 'semacs
+                   (format "Modules that failed to load: %s. Run M-x suhas/doctor."
+                           (mapconcat #'identity suhas/failed-modules ", "))
+                   :warning))
 
 ;;; init.el ends here

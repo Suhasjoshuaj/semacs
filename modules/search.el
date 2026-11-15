@@ -19,23 +19,21 @@
 ;;; A "project" = any folder containing .git OR an empty file named
 ;;; .project (SPC p n creates it; use it for folders that are not git
 ;;; repos, e.g. a flat ~/cpp practice folder).
+;;;
+(require (quote cl-lib))
+
+;;; WHERE your repos live is `suhas/repo-root-candidates' in settings.el
+;;; (override it in local.el).
 
 ;;; ============================================================
-;;; WHERE YOUR REPOS LIVE  -- edit this list
+;;; REPO ROOTS
 ;;; ============================================================
-
-(defvar suhas/repo-root-candidates
-  '("~/code" "~/projects" "~/dev" "~/src" "~/repos" "~/work"
-    "~/cpp" "~/org" "~/.emacs.d")
-  "Folders that CONTAIN your repos (each child folder is a project), or
-that are themselves a project. Folders that don't exist are ignored, so
-this list can safely name places that exist on only one of your machines.
-Used by: SPC p p (project discovery), SPC s f, SPC s g/G, magit repo list.")
 
 (defun suhas/repo-roots ()
   "Existing directories from `suhas/repo-root-candidates' (re-checked each call)."
-  (seq-filter #'file-directory-p
-              (mapcar #'expand-file-name suhas/repo-root-candidates)))
+  (delete-dups
+   (seq-filter #'file-directory-p
+               (mapcar #'expand-file-name suhas/repo-root-candidates))))
 
 ;;; ============================================================
 ;;; PROJECT.EL
@@ -54,30 +52,54 @@ Used by: SPC p p (project discovery), SPC s f, SPC s g/G, magit repo list.")
   ;; a "[f] Find file [g] Find regexp ..." menu you had to answer first.)
   (project-switch-commands #'project-find-file))
 
-(defun suhas/project-rescan ()
-  "Register every project found directly inside `suhas/repo-roots'.
+(defvar suhas/--last-project-scan 0
+  "`float-time' of the last repo-root scan (throttles `suhas/project-rescan').")
+
+(defun suhas/--project-root-p (dir)
+  "Non-nil if DIR itself is a project root (has .git, a file or a folder, or .project)."
+  (or (file-exists-p (expand-file-name ".git" dir))
+      (file-exists-p (expand-file-name ".project" dir))))
+
+(defun suhas/--scan-for-projects (dir depth)
+  "Project roots at or below DIR, looking at most DEPTH levels down.
+A project root is returned as-is and never searched further, so a
+monorepo is one project, not one per subfolder."
+  (cond
+   ((suhas/--project-root-p dir) (list (file-name-as-directory dir)))
+   ((<= depth 0) nil)
+   (t
+    (let (found)
+      (dolist (sub (ignore-errors
+                     (directory-files dir t directory-files-no-dot-files-regexp)))
+        (let ((name (file-name-nondirectory sub)))
+          (when (and (file-directory-p sub)
+                     (not (string-prefix-p "." name))
+                     (not (member name suhas/repo-scan-ignore)))
+            (setq found (nconc found (suhas/--scan-for-projects sub (1- depth)))))))
+      found))))
+
+(defun suhas/project-rescan (&optional force)
+  "Register every project found under `suhas/repo-roots'.
 project.el only learns about a project when you run a project command in
-it, so a freshly cloned or created repo was invisible to the project
-list. This is cheap (one directory listing per root), so SPC p p simply
-does it on every call."
-  (interactive)
+it, so a freshly cloned repo was invisible to the project list. The scan
+looks `suhas/repo-root-depth' levels down and is throttled to once per
+`suhas/project-rescan-interval' seconds unless FORCE (always, interactively).
+Returns the number of newly registered projects."
+  (interactive (list t))
   (require 'project)
-  (let ((known (project-known-project-roots))
-        (added 0))
-    (dolist (root (suhas/repo-roots))
-      (dolist (dir (cons root (directory-files
-                               root t directory-files-no-dot-files-regexp)))
-        (when (file-directory-p dir)
-          (when-let* ((pr (project-current nil dir))
-                      (pr-root (project-root pr)))
-            ;; Only the folder itself: a plain subfolder of some repo must
-            ;; not register its parent over and over.
-            (when (and (file-equal-p pr-root dir)
-                       (not (seq-some (lambda (k) (file-equal-p k pr-root))
-                                      known)))
-              (project-remember-project pr)
-              (push pr-root known)
-              (cl-incf added))))))
+  (let ((added 0))
+    (when (or force
+              (> (- (float-time) suhas/--last-project-scan)
+                 suhas/project-rescan-interval))
+      (setq suhas/--last-project-scan (float-time))
+      (let ((known (project-known-project-roots)))
+        (dolist (root (suhas/repo-roots))
+          (dolist (dir (suhas/--scan-for-projects root suhas/repo-root-depth))
+            (unless (seq-some (lambda (k) (file-equal-p k dir)) known)
+              (when-let* ((pr (project-current nil dir)))
+                (project-remember-project pr)
+                (push dir known)
+                (cl-incf added)))))))
     (when (called-interactively-p 'interactive)
       (message "Project rescan: %d new project(s) found" added))
     added))
@@ -112,7 +134,7 @@ does it on every call."
   (let ((roots (suhas/repo-roots))
         (default-directory (file-name-as-directory (expand-file-name "~"))))
     (unless roots
-      (user-error "No repo roots exist; edit `suhas/repo-root-candidates' in search.el"))
+      (user-error "No repo roots exist; set `suhas/repo-root-candidates' in local.el"))
     (funcall command roots)))
 
 (defun suhas/find-file-everywhere ()
@@ -128,7 +150,7 @@ does it on every call."
 (defun suhas/grep-project ()
   "Search file CONTENTS in the current project (all repos if not in one)."
   (interactive)
-  (if-let ((pr (project-current)))
+  (if-let* ((pr (project-current)))
       (consult-ripgrep (project-root pr))
     (message "Not in a project -- searching all repos")
     (suhas/grep-everywhere)))
@@ -142,6 +164,9 @@ does it on every call."
 ;;; REMEMBERING THINGS (recent files, cursor position, histories)
 ;;; ============================================================
 
+(defvar suhas/recentf-timer nil
+  "Idle timer that saves the recent-files list (kept so a reload replaces it).")
+
 (use-package recentf
   :ensure nil
   :init
@@ -149,14 +174,22 @@ does it on every call."
   :custom
   ;; Default is 20: far too few for "reopen something from last week".
   (recentf-max-saved-items 500)
-  (recentf-exclude '("/tmp/" "/ssh:" "\\.elc\\'" "\\.git/" "/node_modules/"
+  ;; Never stat remote (TRAMP) files while cleaning the list: an unreachable
+  ;; host would freeze Emacs at startup. Remote files are not remembered.
+  (recentf-auto-cleanup 'never)
+  (recentf-exclude '("/tmp/" "\\`/[a-z]+:" "\\.elc\\'" "\\.git/" "/node_modules/"
                      "/elpa/" "/eln-cache/" "/backups/" "/auto-saves/"))
   :config
   ;; Normally the list is written only on a clean exit; a crash lost it.
-  (run-with-idle-timer 300 t
-                       (lambda ()
-                         (let ((inhibit-message t))
-                           (recentf-save-list)))))
+  (when (timerp suhas/recentf-timer)
+    (cancel-timer suhas/recentf-timer))
+  (setq suhas/recentf-timer
+        (run-with-idle-timer 300 t #'suhas/recentf-save-quietly)))
+
+(defun suhas/recentf-save-quietly ()
+  "Save the recent-files list without a message."
+  (let ((inhibit-message t))
+    (recentf-save-list)))
 
 ;; Reopen a file at the line where you left it.
 (use-package saveplace
@@ -207,12 +240,17 @@ does it on every call."
     (with-current-buffer sb-buf
       (apply orig-fn args))))
 
+(defun suhas/speedbar-mouse-fix ()
+  "mouse-1 was translated to mouse-2 (follow-link), which fell through to
+Evil's global mouse-2 = paste-primary-selection binding."
+  (setq-local mouse-1-click-follows-link nil))
+
 (use-package speedbar
   :ensure nil
   ;; The key MUST be bound here (not inside :config): :config only runs
-  ;; once speedbar is loaded, so the old binding did not exist until
+  ;; once speedbar is loaded, so the binding would not exist until
   ;; speedbar had already been opened some other way.
-  :bind ("C-x l" . suhas/toggle-speedbar-window-focus)
+  :bind (("C-x l" . suhas/toggle-speedbar-window-focus))
   :commands (speedbar)
   :config
   (setq speedbar-prefer-window t
@@ -221,12 +259,7 @@ does it on every call."
         speedbar-show-unknown-files t
         ;; Stop hiding dotfiles/dot-directories
         speedbar-directory-unshown-regexp "\\`\\'")
-
-  ;; mouse-1 was translated to mouse-2 (follow-link), which fell through
-  ;; to Evil's global mouse-2 = paste-primary-selection binding.
-  (add-hook 'speedbar-mode-hook
-            (lambda () (setq-local mouse-1-click-follows-link nil)))
-
+  (add-hook 'speedbar-mode-hook #'suhas/speedbar-mouse-fix)
   ;; Open files in the real edit window instead of speedbar's own pane.
   (advice-add 'speedbar-edit-line :around #'suhas/speedbar-visit-in-place))
 

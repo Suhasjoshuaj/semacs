@@ -33,13 +33,14 @@
   ;; autoloaded). The :custom values below are applied either way.
   :defer t
   :custom
-  (org-directory "~/org")
-  (org-default-notes-file "~/org/notes.org")
+  ;; Where your notes live: `suhas/org-directory' in settings.el.
+  (org-directory suhas/org-directory)
+  (org-default-notes-file (expand-file-name "notes.org" suhas/org-directory))
 
   ;; org-agenda-files tells the agenda view (SPC o a) which files to scan
   ;; for TODOs and scheduled/deadline items. Anything in ~/org will be
   ;; picked up automatically — you don't need to list files one by one.
-  (org-agenda-files '("~/org"))
+  (org-agenda-files (list suhas/org-directory))
 
   ;; TODO KEYWORDS — the words that can appear after "* " in a headline.
   ;; The "|" separates "not-done" states (left) from "done" states (right).
@@ -55,9 +56,9 @@
   ;; down without leaving whatever you're doing. Triggered with SPC o c,
   ;; then you pick a template by its key ("t" or "n" below).
   (org-capture-templates
-   '(("t" "Task" entry (file+headline "~/org/tasks.org" "Inbox")
+   `(("t" "Task" entry (file+headline ,(expand-file-name "tasks.org" suhas/org-directory) "Inbox")
       "* TODO %?\n  %i\n  %a")
-     ("n" "Note" entry (file+headline "~/org/notes.org" "Notes")
+     ("n" "Note" entry (file+headline ,(expand-file-name "notes.org" suhas/org-directory) "Notes")
       "* %?\n  %U\n  %i")))
 
   ;; When you press TAB on a heading with sub-items, cycle between
@@ -65,11 +66,12 @@
   ;; native "folding," similar to code folding in an IDE.
   (org-cycle-separator-lines 1))
 
-(add-hook 'org-mode-hook
-          (lambda ()
-            (org-indent-mode 1)     ; indent text under headings visually
-            (visual-line-mode 1)    ; wrap long lines instead of truncating
-            (display-line-numbers-mode 0))) ; line numbers are noise in prose
+(defun suhas/org-buffer-setup ()
+  "Prose-friendly defaults for every org buffer."
+  (org-indent-mode 1)               ; indent text under headings visually
+  (visual-line-mode 1)              ; wrap long lines instead of truncating
+  (display-line-numbers-mode 0))    ; line numbers are noise in prose
+(add-hook 'org-mode-hook #'suhas/org-buffer-setup)
 
 ;;; ============================================================
 ;;; 2. WRITING QUALITY-OF-LIFE
@@ -233,18 +235,18 @@
   ;; Where roam notes live. Can be the same as org-directory or a
   ;; subfolder — using a subfolder keeps roam notes separate from
   ;; tasks.org/notes.org above.
-  (org-roam-directory (file-truename "~/org/roam"))
+  (org-roam-directory (file-truename (expand-file-name "roam" suhas/org-directory)))
 
   ;; org-roam normally asks you to confirm the database sync on first
   ;; use of certain commands. This silences that one-time prompt.
   (org-roam-v2-ack t)
 
-  :init
-  ;; Make sure the roam directory actually exists before org-roam tries
-  ;; to scan it — avoids a confusing error on a fresh machine.
-  (make-directory (file-truename "~/org/roam") t)
-
   :config
+  ;; Make sure the roam directory actually exists before org-roam tries
+  ;; to scan it — avoids a confusing error on a fresh machine. (Done here,
+  ;; not at startup: a machine that never uses org-roam never gets the folder.)
+  (make-directory org-roam-directory t)
+
   ;; Build/refresh the link database. Safe to call repeatedly; it's
   ;; incremental after the first run.
   (org-roam-db-autosync-mode 1)
@@ -259,7 +261,10 @@
                                "#+title: ${title}\n#+filetags: :\n")
            :unnarrowed t))))
 
-(add-hook 'org-mode-hook (lambda () (require 'org-roam nil t)))
+(defun suhas/org-load-roam ()
+  "Load org-roam (and its database sync) the first time an org file opens."
+  (require 'org-roam nil t))
+(add-hook 'org-mode-hook #'suhas/org-load-roam)
 
 (with-eval-after-load 'evil
   (suhas/leader

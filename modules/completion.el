@@ -289,11 +289,15 @@
 ;; Safety net: evil's ex command completion reads a text property one
 ;; position before point and signals args-out-of-range on an empty or
 ;; freshly seeded `:' line. A failed completion should simply offer
-;; nothing, not raise an error.
+;; nothing, not raise an error. (A NAMED function, so reloading the config
+;; does not stack a second copy of the advice.)
+(defun suhas/evil-ex-completion-safe (fn &rest args)
+  "Call FN with ARGS; an `args-out-of-range' just means no completions."
+  (condition-case nil (apply fn args)
+    (args-out-of-range nil)))
+
 (with-eval-after-load 'evil-ex
   (advice-add 'evil-ex-command-completion-at-point :around
-              (lambda (fn &rest args)
-                (condition-case nil (apply fn args)
-                  (args-out-of-range nil)))))
+              #'suhas/evil-ex-completion-safe))
 
 ;;; completion.el ends here

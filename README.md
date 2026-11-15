@@ -4,8 +4,16 @@ Lean, fast, and *readable*. An Evil (Vim) layer on a small, deliberate set of
 packages. Works on **Windows and Linux** with the same config and the same
 terminal (ghostel).
 
-**Requires Emacs 29.1+** (30+ recommended: `which-key` is built in there).
-Needs `fd` and `ripgrep` on your PATH.
+**Requires Emacs 29.1+** (30+ recommended: `which-key` and EditorConfig are
+built in there). Needs `git`, `fd` and `ripgrep` on your PATH.
+Run `M-x suhas/doctor` (`SPC c h`) any time to see what is installed and what
+is missing.
+
+**Verification status (be honest about it):** this version was loaded and its
+logic (repo discovery, run commands, doctor, snapshot, reload) tested in batch
+Emacs **31.1** with third-party packages stubbed out. It has **not** been run
+with the real packages, ghostel, or on Windows. Treat the first launch on a new
+machine as the real test, and use `SPC c h` and `*Messages*` to read the result.
 
 ---
 
@@ -23,20 +31,72 @@ Needs `fd` and `ripgrep` on your PATH.
    scoop install fd ripgrep     # or: winget install sharkdp.fd BurntSushi.ripgrep.MSVC
    ```
 4. **Start Emacs.** The first run downloads packages (1–2 min). Watch `*Messages*`.
-5. **Tell it where your repos live** (one list, `modules/search.el`):
+5. **Tell it about this machine** in `local.el` (the one place for
+   machine-specific settings; press `SPC c o` and it is created from
+   `local.example.el`):
    ```elisp
-   (defvar suhas/repo-root-candidates
-     '("~/code" "~/projects" "~/cpp" "~/org" "~/.config/emacs" ...))
+   (setq suhas/repo-root-candidates '("~/work" "~/code"))
    ```
-   Folders that don't exist on a machine are ignored, so one list serves both
-   of your computers.
+   Folders that don't exist are ignored. Repos are found up to
+   `suhas/repo-root-depth` (default 2) levels below each root, so
+   `~/work/team/app` works. See "Settings and local.el" below.
 6. **Terminal, first use only:** press `SPC t t`. Ghostel offers to download a
    prebuilt native module; answer **yes**. It needs an Emacs built with dynamic
    modules: `M-: (featurep 'modules)` must return `t`. If nothing happens after
    "downloading native module…", see Troubleshooting (manual download).
 
 If a module fails to load, Emacs keeps going and shows a warning naming that
-module (it used to stop silently half-way). Fix it, then `SPC c r`.
+module. Fix it, then `SPC c r`. `SPC c h` lists failed modules too.
+
+---
+
+## Settings and local.el (the single place for machine setup)
+
+```
+modules/settings.el    every knob with its default and an explanation  (tracked)
+local.el               YOUR overrides, loaded right after settings.el   (gitignored)
+local.example.el       a template to copy                               (tracked)
+```
+
+`local.el` is plain Emacs Lisp loaded **before** the other modules, so a `setq`
+there wins. Because it is gitignored, `git pull` never conflicts with your
+setup, and two people can share one repo with different machines.
+
+Common things to set there:
+
+```elisp
+(setq suhas/repo-root-candidates '("~/work" "~/code"))      ; where repos live
+(setq suhas/modules (delete "org" suhas/modules))            ; switch a feature off
+(setq suhas/font-family "JetBrains Mono")
+(setq suhas/python-lsp-command '("basedpyright-langserver" "--stdio"))
+(setq suhas/format-on-save-modes '(go-mode rust-mode))        ; opt-in
+(setq suhas/claude-integration 'claude-code-ide)              ; optional, Emacs 30+
+```
+
+Use `local.el`, not `M-x customize`: Customize writes `custom.el`, which loads
+last and would override `local.el`. (Customize is still used for the saved
+theme only.)
+
+### Using this config on a work machine (checklist)
+
+1. Install Emacs 30+ with dynamic modules and sqlite (`SPC c h` checks both).
+2. Install `git`, `ripgrep`, `fd`, and the language servers you use.
+3. First start needs network access to MELPA/GNU ELPA (set `HTTPS_PROXY` in
+   your shell if behind a proxy; GUI Emacs copies it in, see
+   `suhas/shell-env-variables`).
+4. `SPC t t` once: ghostel downloads a **prebuilt native module** and loads it
+   into Emacs. If your company restricts that, confirm it is allowed; the rest
+   of the config does not depend on it.
+5. Create `local.el` (`SPC c o`): repo roots, and drop `"org"` if you do not
+   want personal notes tooling.
+6. Run `SPC c h` until nothing important says `[FAIL]`.
+7. Language servers ask before editing files across the project
+   (`suhas/lsp-confirm-edits`); format-on-save is off until you opt in.
+8. Once it works, run `SPC c s` and commit `package-versions.eld`. It records
+   exact package versions; `SPC c d` on another machine shows what drifted.
+   (Packages are not pinned: this is a record, not a lockfile. To clone a
+   working setup exactly, copy the whole `elpa/` directory for the same Emacs
+   version and OS.)
 
 ---
 
@@ -121,6 +181,7 @@ Press `SPC` and wait half a second: **which-key** shows what can follow.
 | `SPC b i` | ibuffer |
 | `C-;` / `C-'` | next / previous **code** buffer |
 | `C-,` | toggle between the last two buffers |
+| `C-c n` / `C-c p` / `C-c b` | the same three, for terminal Emacs (`emacs -nw`) where `C-;` etc. don't exist (also `SPC b n/p/b`) |
 | `C-x l` | speedbar (file tree); press again to jump in/out |
 
 #### Search & projects
@@ -141,6 +202,7 @@ Press `SPC` and wait half a second: **which-key** shows what can follow.
 | `SPC g s` | status (from anywhere; asks for a repo if you're not in one) |
 | `SPC g l` / `SPC g b` | log / blame |
 | `SPC g r` | list all your repos |
+| `SPC g f` | forge menu: pull requests and issues (needs a token, see `modules/forge.el`) |
 
 #### Windows, workspaces, perspectives
 | Key | Action |
@@ -148,13 +210,17 @@ Press `SPC` and wait half a second: **which-key** shows what can follow.
 | `SPC w h/j/k/l` | move between windows |
 | `SPC w s` / `w v` | split / vsplit |
 | `SPC w q` / `w o` / `w =` / `w r` | close / only this / balance / rotate |
-| `SPC a n/k/r/l/h` | tab-bar: new / close / rename / next / prev (`M-1..9` jump) |
 | `SPC v n/k/r/l/h/b/a` | perspectives: switch-or-create / kill / rename / next / prev / buffer list / add buffer |
+| `M-1` … `M-9` | jump to perspective by number (creation order) |
+
+Perspective is the **only** workspace system (tab-bar was removed: same job,
+and perspective also isolates buffers per project).
 
 #### Terminal (ghostel)
 | Key | Action |
 |---|---|
 | `SPC t t` | show this perspective's terminal (creates one if needed) |
+| `SPC t e` / `C-c e` | where ESC goes in this terminal: auto / always the program / always Evil |
 | `SPC t n` | new named terminal |
 | `SPC t s` | pick a terminal |
 | `SPC t l` / `SPC t h` | next / previous terminal |
@@ -181,8 +247,19 @@ properly, press `C-c v` to switch Vim mode off (plain Emacs keys), edit, and
 | `SPC e l` | diagnostics list (jumpable, with preview) |
 | `SPC e a` / `SPC e r` / `SPC e f` | code action / rename / LSP format |
 | `SPC e o` | format-all (non-LSP formatter) |
+| `SPC m b` | build/run **this file**, by language (C, C++, Rust, Go, Python, JS) |
 | `SPC m c` / `m r` | compile / recompile |
 | `SPC m n` / `m p` / `m g` / `m k` | next error / previous / first / stop build |
+| `SPC d d` / `b` / `c` / `n` / `i` / `o` / `r` / `q` | debugger (dape): start / breakpoint / continue / next / step in / out / restart / quit |
+
+#### Claude Code
+| Key | Action |
+|---|---|
+| `SPC a c` | open Claude Code in a new terminal at the project root |
+| `SPC a r` | same, resuming a previous conversation (`--resume`) |
+| `SPC a m` | menu of claude-code-ide (only if enabled in `local.el`) |
+
+See "Claude Code" below.
 
 #### Org: `SPC o …` (cheat sheet at the bottom of `modules/org.el`)
 
@@ -190,9 +267,13 @@ properly, press `C-c v` to switch Vim mode off (plain Emacs keys), edit, and
 | Key | Action |
 |---|---|
 | `SPC c e` | open a config file (fuzzy) |
+| `SPC c o` | open `local.el` (created from the template if missing) |
 | `SPC c r` | reload config (only a restart is a fully clean slate) |
-| `SPC c v` / `C-c v` | toggle Vim mode |
-| `SPC u t` | theme menu (lists only installed themes) |
+| `SPC c h` | doctor: what is installed / missing / broken |
+| `SPC c s` / `SPC c d` | snapshot package versions / show drift from the snapshot |
+| `SPC c v` / `C-c v` | toggle Vim mode (all buffers) |
+| `SPC c l` | toggle Vim mode in this buffer only |
+| `SPC u t` / `u n` / `u p` | theme menu / next / previous theme |
 | `SPC l w` | toggle line wrap |
 
 ---
@@ -252,17 +333,60 @@ keys (`C-n/p`, `C-a/e`, …).
 
 ---
 
-## Language servers
+## Languages, servers and project tooling
 
-**Python, JS/TS, Rust, C/C++, Java** via Eglot. If a server isn't found:
+**Python, JS/TS/TSX, Rust, Go, C/C++, Java, YAML** via Eglot, plus Markdown and
+Dockerfile modes. If a server isn't found:
 ```bash
-npm install -g pyright typescript-language-server typescript
+npm install -g pyright typescript-language-server typescript yaml-language-server
 rustup component add rust-analyzer          # Rust
+go install golang.org/x/tools/gopls@latest # Go
 sudo pacman -S clangd                       # Arch;  Debian: sudo apt install clangd
 # Java: jdtls (https://github.com/eclipse/eclipse.jdt.ls/releases)
 ```
 The completion popup (Corfu) appears after 2 characters. **TAB** inserts;
 `RET` always means newline.
+
+What the work-oriented pieces do (`modules/devtools.el`):
+
+- **EditorConfig:** a project's `.editorconfig` overrides the default 4/2-space
+  indentation. (Built into Emacs 30+.)
+- **direnv (`envrc`):** if `direnv` is installed, each buffer gets the
+  environment of its project's `.envrc`. This is how Pyright finds a project's
+  virtualenv and `node` resolves to the project's version. Without direnv,
+  Python completion uses whatever `python` is on PATH.
+- **Spellcheck** for commit messages, Markdown and Org (needs `aspell` or
+  `hunspell`).
+- **Language-server edits ask first** (`suhas/lsp-confirm-edits`).
+- **Remote / containers (`modules/remote.el`):** `/ssh:host:/path`,
+  `/docker:container:/path`, `/sudo::/etc/hosts` work with eglot, magit and
+  compile.
+
+**TSX:** without tree-sitter, `.tsx` files use `web-mode` (typescript-mode has
+no JSX support). It is a best-effort setup and untested on real React code;
+the proper fix is `tsx-ts-mode` when you decide to adopt tree-sitter.
+
+## Claude Code
+
+`SPC a c` runs the `claude` CLI in a ghostel terminal at the project root,
+inside the current perspective. When Claude exits, its terminal closes. Nothing
+extra is installed. What makes it work well:
+
+- Files Claude edits **reload in your buffers** automatically (auto-revert), and
+  `SPC g s` (magit) plus the diff-hl gutter show exactly what changed.
+- **ESC goes to Claude**, not to Evil. Claude Code uses ESC to interrupt and
+  (twice) to rewind, and evil-ghostel's default only forwards ESC for
+  full-screen programs such as vim. These buffers pin ESC to the program. Press
+  `C-c e` to cycle to "Evil" when you want normal state in the terminal.
+- If the buffer opens your normal shell instead of Claude, ghostel read its
+  shell setting later than expected: open `SPC t t` and type `claude` once, and
+  tell whoever maintains this config (the launcher is `suhas/claude` in
+  `modules/claude.el`).
+- Optional MCP bridge (Claude can see your selection, buffers and Flymake
+  diagnostics): put `(setq suhas/claude-integration 'claude-code-ide)` in
+  `local.el` (Emacs 30+; it installs `manzaltu/claude-code-ide.el` from GitHub).
+  Another option is `stevemolitor/claude-code.el`; neither is configured here
+  beyond the first.
 
 ---
 
@@ -271,9 +395,13 @@ The completion popup (Corfu) appears after 2 characters. **TAB** inserts;
 ```
 ~/.config/emacs/
 ├── early-init.el      startup performance; package.el activated once
-├── init.el            entry point; a failing module only warns
+├── init.el            table of contents: loads settings, local.el, then modules
+├── local.example.el   template for your machine settings (copy to local.el)
+├── local.el           YOURS (gitignored)
+├── package-versions.eld   package snapshot (commit it; made by SPC c s)
 └── modules/
-    ├── core.el        packages, defaults, environment, utilities
+    ├── settings.el    every knob and its default            (not removable)
+    ├── core.el        packages, defaults, environment, shared helpers (always loads)
     ├── ui.el          theme, font, line numbers, modeline
     ├── completion.el  Vertico, Orderless, Marginalia, Consult, Corfu, Cape
     ├── search.el      repo roots, projects, find-anywhere, grep, recentf, speedbar
@@ -282,32 +410,44 @@ The completion popup (Corfu) appears after 2 characters. **TAB** inserts;
     ├── lsp.el         Eglot
     ├── langs.el       per-language modes
     ├── buffer-nav.el  code-buffer rotation / toggle
-    ├── window-mgmt.el tab-bar, perspective
-    ├── compile.el     compile settings
-    ├── formatter.el   format-all
+    ├── window-mgmt.el perspective (the workspace system), window helpers
+    ├── compile.el     compile settings, SPC m b run-this-file
+    ├── formatter.el   format-all, opt-in format-on-save
+    ├── devtools.el    editorconfig, direnv, spellcheck, debugger
+    ├── remote.el      TRAMP (ssh / docker)
     ├── magit.el       magit + diff-hl
-    └── org.el         org + org-roam (loaded lazily)
+    ├── forge.el       pull requests / issues in magit
+    ├── org.el         org + org-roam (loaded lazily)
+    ├── claude.el      Claude Code launcher (+ optional integration)
+    └── doctor.el      health check, package snapshot/drift
 ```
 
+Modules load in the order of `suhas/modules` (settings.el). Remove a name in
+`local.el` to switch a module off. Order matters: `search` needs `completion`,
+modules defining `SPC` keys need `evil`, `forge` needs `magit`.
+
 Files Emacs writes (all gitignored): `custom.el` (saved theme), `projects`,
-`recentf`, `places` (cursor positions), `history`, `elpa/`, `eln-cache/`.
+`recentf`, `places` (cursor positions), `history`, `forge-database.sqlite`,
+`elpa/`, `eln-cache/`.
 
 ---
 
 ## Customization
 
-- **Repo locations:** `suhas/repo-root-candidates` in `modules/search.el`.
-- **Font:** `suhas/font-family` / `suhas/font-size` in `modules/ui.el`
-  (applied only if the font is installed).
+Everything below is a variable in `modules/settings.el`; override it in
+`local.el`.
+
+- **Repo locations:** `suhas/repo-root-candidates`, `suhas/repo-root-depth`.
+- **Font:** `suhas/font-family` / `suhas/font-size` (applied only if installed).
 - **Recent files in `SPC SPC`:** shown by default (so typing a name finds
   files from last week). To hide them until you press `f`, add to
   `completion.el`: `(consult-customize consult-source-recent-file :hidden t :default nil)`.
   The "Perspective" group (this perspective's buffers) was always visible;
   `s` only narrows to it.
-- **Themes:** add to `suhas/themes` in `modules/ui.el`; the menu lists only
-  themes available on that machine.
+- **Themes:** `suhas/themes`; the menu lists only themes available on that
+  machine.
 - **Terminal size/position:** `suhas/terminal-height-fraction`,
-  `suhas/terminal-width-fraction`, `SPC t p`.
+  `suhas/terminal-width-fraction`, `suhas/terminal-position`, or `SPC t p`.
 - **Project root rule:** `project-vc-extra-root-markers` in `search.el`. It is
   deliberately just `.project`: adding `package.json` or `Makefile` would split
   a monorepo into one project per service.
@@ -316,9 +456,13 @@ Files Emacs writes (all gitignored): `custom.el` (saved theme), `projects`,
 
 ## Troubleshooting
 
-**`SPC p p` doesn't list my new repo.** It must sit *directly inside* one of the
-`suhas/repo-root-candidates` folders and contain `.git` (or `.project`).
-Otherwise open any file in it; project.el finds it from the file.
+**`SPC p p` doesn't list my new repo.** It must sit inside one of the
+`suhas/repo-root-candidates` folders, no deeper than `suhas/repo-root-depth`
+levels (default 2), and contain `.git` (or `.project`). The scan runs at most
+every 30 s; `M-x suhas/project-rescan` forces it. Folders named `node_modules`,
+`build`, `dist`, … and dot-folders are skipped. A folder that is itself a repo is
+never searched further (so submodules inside a monorepo are not separate
+projects). Otherwise open any file in the repo; project.el finds it from the file.
 
 **`SPC s f` finds nothing.** Type at least 2 characters. Check
 `M-: (executable-find "fd")` (Debian: `"fdfind"`). It matches file *names*.
@@ -347,27 +491,43 @@ shell (`exec-path-from-shell` in `core.el`), and background native compilation
 right after package updates (uses CPU but doesn't block).
 
 **"Failed to verify signature … No public key".** On Windows, signature checking
-is off on purpose (see the comment in `init.el`: Git's MSYS gpg can't use Windows
-paths, so it can never verify). On Linux it is on; if you see this there, set
-`package-check-signature` to `nil` once, run `M-x package-install RET
-gnu-elpa-keyring-update`, then set it back (`init.el` does that on restart).
+is off on purpose (see `suhas/package-check-signature` in `settings.el`: Git's
+MSYS gpg can't use Windows paths, so it can never verify). On Linux it is on; if
+you see this there, set `(setq suhas/package-check-signature nil)` in `local.el`
+once, run `M-x package-install RET gnu-elpa-keyring-update`, then remove the
+line.
 
 ---
 
-## Things that exist but you may not be using
+## What changed in 3.0 (from the 2.0 audit)
 
-(Audit, Nov 2026. Decide per item: use it or delete it.)
+- **One place for machine setup:** `settings.el` (defaults) + `local.el`
+  (yours). Nothing machine-specific is hardcoded in tracked modules any more
+  (the MSYS2 clangd path, the Git-for-Windows path, repo roots, org directory).
+- **Modules can be switched off** via `suhas/modules`; load failures are
+  tracked and shown by `SPC c h`.
+- **Tab-bar removed;** perspective is the only workspace system (`M-1..9` now
+  switch perspectives).
+- **Dead code resolved:** the five broken compile helpers became one working
+  `SPC m b`; `next-theme`/`prev-theme` and `evil-local-mode-toggle` now have
+  keys; the unused `smart-window-split-*` and ~50 lines of commented modeline
+  code were deleted.
+- **Safer defaults:** server edits ask first; no format-on-save unless opted in.
+- **Reload is clean:** every hook and advice is a named function, so
+  `SPC c r` no longer stacks duplicates.
+- **Work tooling added:** Go, Markdown, Dockerfile, TSX (web-mode),
+  EditorConfig, direnv, spellcheck, debugger, forge, TRAMP, Claude Code
+  launcher, doctor, package snapshot, proxy variables copied into GUI Emacs,
+  recentf made TRAMP-safe, backups made hard-link-safe.
+- **Repo discovery** now searches `suhas/repo-root-depth` levels (default 2),
+  stops at project roots, skips build/vendor folders, and is throttled.
+- **Terminal Emacs:** `C-c n/p/b` replace `C-;`/`C-'`/`C-,` where those chords
+  do not exist. The `C-;` family is unchanged in GUI Emacs.
+- Small: a column number in the modeline and `require-final-newline`.
 
-- **Unbound commands:** `suhas/compile-c`, `-cpp`, `-rust`, `suhas/run-python`,
-  `suhas/run-js` (and they are buggy: `'./%s'` with an absolute path becomes
-  `.//home/…`), `suhas/next-theme`, `suhas/prev-theme`,
-  `suhas/smart-window-split-below/right`, `suhas/evil-local-mode-toggle`.
-- **Two workspace systems:** tab-bar tabs (`SPC a`, `M-1..9`) *and*
-  perspectives (`SPC v`; `SPC p p` also switches to one). They don't talk to
-  each other. Pick one as your primary.
-- **ibuffer / dired:** fine, but with `SPC SPC`, `SPC s f` and `SPC p p` you may
-  rarely need them.
-- **org-roam:** lazy now. If you don't use it, delete its block in `org.el`.
+**Still deliberately not done:** tree-sitter (TSX is best-effort), exact
+version pinning (only a snapshot), DAP adapters (install per language), and
+runtime testing on real packages, ghostel and Windows.
 
 ---
 
@@ -384,4 +544,4 @@ Help: `C-h k` (key), `C-h f` (function), `C-h v` (variable), `C-h m` (modes).
 
 ---
 
-**Config version**: 2.0 (Nov 2026) · **Emacs required**: 29.1+
+**Config version**: 3.0 (Nov 2026) · **Emacs required**: 29.1+

@@ -1,5 +1,5 @@
 ;;; core.el --- Package manager and sane defaults  ... -*- lexical-binding: t; -*-
-;;; This loads FIRST. Everything else depends on this.
+;;; This loads FIRST (after settings.el and local.el). Everything depends on it.
 
 ;;; ---------------------------------------------------------------------------
 ;;; Default Directory
@@ -12,23 +12,20 @@
   (setq default-directory
         (expand-file-name "~")))
 
-;; Only the *scratch* buffer gets ~ as its directory. The old hook ran
-;; (cd "~") in whatever buffer was current at startup, so
-;; `emacs ~/code/proj/main.c' ended up with main.c's default-directory
-;; set to ~ -- and project.el, which decides the project from
-;; default-directory, then saw NO project for that file.
-(add-hook
- 'emacs-startup-hook
- (lambda ()
-   (when-let ((scratch (get-buffer "*scratch*")))
-     (with-current-buffer scratch
-       (setq default-directory (file-name-as-directory (expand-file-name "~")))))))
+;; Only the *scratch* buffer gets ~ as its directory. (Changing the current
+;; buffer's directory at startup would break project.el for a file passed on
+;; the command line: `emacs ~/code/proj/main.c'.)
+(defun suhas/scratch-to-home ()
+  "Give *scratch* the home directory as `default-directory'."
+  (when-let* ((scratch (get-buffer "*scratch*")))
+    (with-current-buffer scratch
+      (setq default-directory (file-name-as-directory (expand-file-name "~"))))))
+(add-hook 'emacs-startup-hook #'suhas/scratch-to-home)
+
 ;;; ============================================================
 ;;; PACKAGE MANAGER — Use built-in package.el + use-package
 ;;; ============================================================
 
-;; Emacs has a built-in package manager. No external dependency needed.
-;; We tell it where to find packages (MELPA for bleeding-edge, GNU for stable).
 (require 'package)
 (add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/"))
 (add-to-list 'package-archives '("nongnu" . "https://elpa.nongnu.org/nongnu/"))
@@ -39,54 +36,51 @@
 (setq package-archive-priorities
       '(("gnu" . 30) ("nongnu" . 20) ("melpa" . 10)))
 (package-initialize)
- 
-
-;; use-package is a macro that makes package declarations clean and readable.
-;; It's part of Emacs 29+, but we ensure it's installed for older versions.
-(unless (package-installed-p 'use-package)
-  (package-refresh-contents)
-  (package-install 'use-package))
-
-;; Enable use-package globally. This makes every (use-package ...) work.
-(require 'use-package)
-(setq use-package-always-ensure t)  ; Auto-install packages if missing
-
-;; Windows pinger
-(defconst suhas/windows-p (eq system-type 'windows-nt)
-  "Non-nil when running native Windows Emacs (not WSL).")
 
 ;; Windows: Emacs usually does not have Git's `cmd' directory on exec-path,
-;; and package.el needs `git' to install the version-pinned ghostel
-;; packages (terminal.el). This runs before any package is installed.
-(when suhas/windows-p
-  (let ((git-cmd "C:/Program Files/Git/cmd"))
+;; and package.el needs `git' to install version-pinned packages (ghostel).
+;; This runs before any package is installed.
+(when (and suhas/windows-p suhas/git-for-windows-root)
+  (let ((git-cmd (expand-file-name "cmd" suhas/git-for-windows-root)))
     (when (file-directory-p git-cmd)
       (add-to-list 'exec-path git-cmd)
       (setenv "PATH" (concat (subst-char-in-string ?/ ?\\ git-cmd)
                              ";" (or (getenv "PATH") ""))))))
 
+;; use-package is built in since Emacs 29; this only matters on older ones.
+(unless (package-installed-p 'use-package)
+  (package-refresh-contents)
+  (package-install 'use-package))
+
+(require 'use-package)
+(setq use-package-always-ensure t)  ; Auto-install packages if missing
+
 ;;; ============================================================
-;;; PERFORMANCE TUNING
+;;; ENVIRONMENT — PATH, proxies, etc. from your login shell
 ;;; ============================================================
 
-;; exec-path-from-shell: Copy PATH from your shell to Emacs.
-;; Without this, language servers (clangd, rust-analyzer, etc) aren't found.
-;; NOTE: this spawns a login+interactive shell during startup, which is
-;; often the single biggest chunk of init time (a heavy .bashrc/.zshrc,
-;; nvm, conda...). Measure with `M-x emacs-init-time'.
-(if suhas/windows-p
-    (setq shell-file-name "C:/Program Files/Git/bin/bash.exe"
-          shell-command-switch "-c")
+;; Without this, a GUI Emacs launched from a desktop icon has a bare PATH:
+;; language servers (clangd, pyright...) and `git' hooks are not found, and
+;; behind a corporate proxy nothing can download. A terminal-launched Emacs
+;; already inherits all of it, so it is skipped there (saves a login-shell
+;; spawn, usually the biggest chunk of init time).
+(cond
+ (suhas/windows-p
+  (let ((bash (and suhas/windows-use-git-bash suhas/git-for-windows-root
+                   (expand-file-name "bin/bash.exe" suhas/git-for-windows-root))))
+    (when (and bash (file-exists-p bash))
+      (setq shell-file-name bash
+            shell-command-switch "-c"))))
+ ((or initial-window-system (daemonp))
   (use-package exec-path-from-shell
     :init
-    (exec-path-from-shell-initialize)))
+    (setq exec-path-from-shell-variables suhas/shell-env-variables)
+    (exec-path-from-shell-initialize))))
 
 ;;; ============================================================
 ;;; ENCODING — UTF-8 everywhere
 ;;; ============================================================
 
-;; Make sure Emacs speaks UTF-8 in all contexts.
-;; This is non-negotiable in 2025.
 (set-language-environment "UTF-8")
 (set-default-coding-systems 'utf-8)
 (set-terminal-coding-system 'utf-8)
@@ -97,101 +91,73 @@
 ;;; FILE ORGANIZATION — No scattered backup files
 ;;; ============================================================
 
-;; By default, Emacs scatters backup files, auto-saves, and lock files
-;; throughout your project directories. This centralizes them in .config/emacs/.
-
-;; Backups (~ files)
+;; By default Emacs scatters backups, auto-saves and lock files through your
+;; project directories (where they end up in `git status'). Centralise them.
 (setq backup-directory-alist
       `(("." . ,(expand-file-name "backups/" user-emacs-directory))))
-
-;; Auto-saves (when you haven't explicitly saved)
 (setq auto-save-file-name-transforms
       `((".*" ,(expand-file-name "auto-saves/" user-emacs-directory) t)))
-
-;; Lock files (prevent editing the same file twice)
 (setq lock-file-name-transforms
       `((".*" ,(expand-file-name "locks/" user-emacs-directory) t)))
-
-;; Create those directories if they don't exist
 (dolist (dir '("backups" "auto-saves" "locks"))
   (make-directory (expand-file-name dir user-emacs-directory) t))
+
+;; Back up by copying, so symlinks and hard links in a repo are never
+;; replaced by a renamed backup file.
+(setq backup-by-copying t)
 
 ;;; ============================================================
 ;;; AUTO-REVERT — Reload files changed on disk
 ;;; ============================================================
 
-;; If you (or git) modifies a file while Emacs has it open,
-;; automatically reload it without asking. Very convenient.
+;; If git, a formatter or an AI agent (Claude Code!) modifies a file that is
+;; open in Emacs, reload it automatically (unless you have unsaved edits).
 (global-auto-revert-mode 1)
-(setq auto-revert-verbose nil)  ; Don't spam the message buffer
-
-;; Follow symlinks without asking. Needed for git repos and monorepos.
+(setq auto-revert-verbose nil)
 (setq vc-follow-symlinks t)
 
 ;;; ============================================================
-;;; INTERACTION — Short answers and helpful defaults
+;;; INTERACTION
 ;;; ============================================================
 
-;; Type "y" or "n" instead of "yes" or "no". Faster.
 (setq use-short-answers t)
-
-;; Highlight matching parens instantly, no delay.
-;; Your eye immediately sees { ... } pairs.
 (setq show-paren-delay 0)
 (show-paren-mode 1)
-
-;; Don't ring the bell. Ever. Visual feedback is fine.
 (setq ring-bell-function 'ignore)
 
 ;;; ============================================================
-;;; EDITING — Sane defaults
+;;; EDITING
 ;;; ============================================================
 
-;; Tabs should be spaces. 4-space indentation everywhere.
-;; This is a convention, adjust to your project's style.
+;; Spaces, 4 wide. A project's .editorconfig (see devtools.el) overrides
+;; this per project; major modes like go-mode and makefile-mode keep their
+;; own rules.
 (setq-default indent-tabs-mode nil)
 (setq-default tab-width 4)
 
-;; Single space after a period. (Typewriters needed two; we don't.)
+;; POSIX wants a final newline; git shows "\ No newline at end of file"
+;; diffs without one.
+(setq require-final-newline t)
+
 (setq sentence-end-double-space nil)
 
-;; Larger undo history. You will thank this when you need to undo 20 steps back.
-(setq undo-limit (* 10 1024 1024)           ; 10MB
-      undo-strong-limit (* 15 1024 1024))   ; 15MB
+(setq undo-limit (* 10 1024 1024)
+      undo-strong-limit (* 15 1024 1024))
 
-;; CLipboard sense
 (setq select-enable-clipboard t)
 (setq select-enable-primary t)
 
-;; Auto-insert the matching closing bracket/quote as you type the opener.
 (electric-pair-mode 1)
 
-;;; ============================================================
-;;; SCROLLING
-;;; ============================================================
-;; Scroll behavior lives in ui.el, not here -- it was duplicated in
-;; both files with different numbers, and since ui.el loads second it
-;; always won silently. One source of truth now.
-
-;;; ============================================================
-;;; HELP AND NAVIGATION
-;;; ============================================================
-
-;; When Emacs tries to guess "which function am I in?",
-;; be explicit about it instead of guessing from indentation.
 (setq which-func-unknown "")
 
-;; (Removed `kill-buffer-delete-windows': no such variable exists in
-;; Emacs, so that line did nothing. `kill-buffer' already replaces the
-;; buffer in any window showing it.)
+;; (Scroll behaviour lives in ui.el.)
 
 ;;; ============================================================
-;;; SHARED HELPERS — used by terminal.el, buffer-nav.el, window-mgmt.el
+;;; SHARED HELPERS — used by terminal.el, buffer-nav.el, window-mgmt.el ...
 ;;; ============================================================
-;; These live here (loaded first) rather than in whichever module
-;; "owns" the concept, so no later module has to forward-reference a
-;; function from a module that hasn't loaded yet. terminal.el in
-;; particular loads before both buffer-nav.el and window-mgmt.el.
+;; These live here (loaded first) so no later module has to forward-reference
+;; a function from a module that hasn't loaded yet.
 
 (defun suhas/persp-buffer-p (buf)
   "Non-nil if BUF belongs to the current perspective.
@@ -205,7 +171,7 @@ to special-case a perspective-less setup."
   "Step to the next/previous buffer in POOL relative to `current-buffer'.
 
 Looks at buffer-list order (most-recently-used first), so repeated
-calls in the same DIRECTION ('next or 'prev) walk POOL like Alt-Tab
+calls in the same DIRECTION (\='next or \='prev) walk POOL like Alt-Tab
 rather than looping between the same two buffers: each call finds
 where `current-buffer' now sits and steps one further.
 
@@ -217,13 +183,51 @@ in POOL qualifies."
         (or (seq-find (lambda (b) (not (and skip-p (funcall skip-p b)))) pool)
             (current-buffer))
       (let* ((remaining (if (eq direction 'next)
-                             (nthcdr (1+ pos) pool)
-                           (reverse (take pos pool))))
+                            (nthcdr (1+ pos) pool)
+                          (reverse (take pos pool))))
              (wrapped (if (eq direction 'next)
                           (take (1+ pos) pool)
                         (reverse (nthcdr pos pool))))
              (search-list (append remaining wrapped)))
         (or (seq-find (lambda (b) (not (and skip-p (funcall skip-p b)))) search-list)
             (current-buffer))))))
+
+(defun suhas/project-dir ()
+  "Root of the current project, or `default-directory' outside one."
+  (if-let* ((pr (project-current)))
+      (project-root pr)
+    default-directory))
+
+;;; ============================================================
+;;; CONFIG MANAGEMENT — open and reload this config
+;;; ============================================================
+
+(defun suhas/open-config ()
+  "Fuzzy-find a file inside the Emacs config directory (SPC c e)."
+  (interactive)
+  (let ((dir (expand-file-name user-emacs-directory)))
+    (if (project-current nil dir)
+        (let ((project-current-directory-override dir))
+          (call-interactively #'project-find-file))
+      ;; Not a git repo / no .project marker: plain file picker.
+      (let ((default-directory dir))
+        (call-interactively #'find-file)))))
+
+(defun suhas/open-local ()
+  "Open local.el (your machine-specific settings), creating it from the template."
+  (interactive)
+  (let ((local (expand-file-name "local.el" user-emacs-directory))
+        (example (expand-file-name "local.example.el" user-emacs-directory)))
+    (when (and (not (file-exists-p local)) (file-exists-p example))
+      (copy-file example local))
+    (find-file local)))
+
+(defun suhas/reload-config ()
+  "Reload init.el (and therefore settings, local.el and every module).
+Hooks and advice in this config are all named functions, so reloading does
+not stack duplicates; a restart is still the only truly clean slate."
+  (interactive)
+  (load (expand-file-name "init.el" user-emacs-directory))
+  (message "Config reloaded."))
 
 ;;; core.el ends here

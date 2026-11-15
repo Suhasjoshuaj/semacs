@@ -66,3 +66,10 @@ projects
 recentf
 places
 tramp
+
+# Machine-specific overrides (copy local.example.el -> local.el)
+local.el
+
+# Runtime state written by packages added in this version
+forge-database.sqlite
+persp-state*

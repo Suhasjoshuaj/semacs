@@ -23,7 +23,7 @@
   ;; SPC g r (magit-list-repositories) and `magit-status' from a buffer
   ;; that is not in a repo (e.g. *scratch*) now offer all your repos.
   (setq magit-repository-directories
-        (mapcar (lambda (dir) (cons dir 1)) (suhas/repo-roots))))
+        (mapcar (lambda (dir) (cons dir suhas/repo-root-depth)) (suhas/repo-roots))))
 
 ;; ESC closes magit's popup menus (c, P, F, b, l, ...) like C-g does.
 (with-eval-after-load 'transient

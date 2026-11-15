@@ -4,8 +4,7 @@
 ;;; EMACS/VIM MODE TOGGLE & EVIL SETUP
 ;;; ============================================================
 
-(defvar suhas/vim-mode-enabled t
-  "Whether to use Vim keybindings (evil-mode). Toggle with suhas/toggle-vim-mode.")
+;; `suhas/vim-mode-enabled' (default t) is defined in settings.el.
 
 ;; Emacs 31 + Evil 1.15: `define-globalized-minor-mode' no longer defines
 ;; the deferred-buffer queue `evil-mode-buffers', but Evil's own
@@ -28,10 +27,11 @@
   )
 
 ;; 4. Check the variable and enable evil AFTER the frame and UI load completely
-(add-hook 'emacs-startup-hook
-          (lambda ()
-            (when suhas/vim-mode-enabled
-              (evil-mode 1))))
+(defun suhas/maybe-enable-evil ()
+  "Turn Evil on at startup unless `suhas/vim-mode-enabled' is nil."
+  (when suhas/vim-mode-enabled
+    (evil-mode 1)))
+(add-hook 'emacs-startup-hook #'suhas/maybe-enable-evil)
 
 ;; Your toggle commands remain unchanged and work instantly
 (defun suhas/toggle-vim-mode ()
@@ -196,7 +196,10 @@
   (suhas/leader
     "SPC" #'consult-buffer      ; SPC SPC = quick buffer switch
     "k"   #'kill-current-buffer ; SPC k = kill buffer
-    "b i" #'ibuffer)            ; SPC b i = buffer list
+    "b i" #'ibuffer             ; SPC b i = buffer list
+    "b n" #'suhas/next-buffer   ; same as C-;  (also works in terminal Emacs)
+    "b p" #'suhas/prev-buffer   ; same as C-'
+    "b b" #'suhas/toggle-last-buffer) ; same as C-,
   
 
   ;; ── Window operations ──────────────────────────────────────
@@ -215,10 +218,12 @@
 
   ;; ── Config management ──────────────────────────────────────
   (suhas/leader
-    "c e" #'suhas/open-config
+    "c e" #'suhas/open-config       ; fuzzy-open any file of this config
+    "c o" #'suhas/open-local        ; open local.el (your machine settings)
     "c r" #'suhas/reload-config
-    "c v" #'suhas/toggle-vim-mode  ; Toggle vim mode
-    "l w" #'suhas/toggle-line-wrap ; Toggle line wrapping
+    "c v" #'suhas/toggle-vim-mode   ; Toggle vim mode (all buffers)
+    "c l" #'suhas/evil-local-mode-toggle ; Toggle vim mode (this buffer only)
+    "l w" #'suhas/toggle-line-wrap  ; Toggle line wrapping
     )
 
   ;; ── Terminal ───────────────────────────────────────────────
@@ -231,7 +236,8 @@
     "t r" #'suhas/terminal-rename
     "t k" #'suhas/terminal-kill
     "t K" #'suhas/terminal-kill-all
-    "t p" #'suhas/terminal-set-position)
+    "t p" #'suhas/terminal-set-position
+    "t e" #'suhas/terminal-toggle-escape)
   
   ;; ── LSP / Errors ───────────────────────────────────────────
   (suhas/leader
@@ -253,6 +259,7 @@
   ;; and ]]/[[ bindings evil-collection gives you for moving around
   ;; *inside* the compilation buffer itself (see below).
   (suhas/leader
+    "m b" #'suhas/run-current-file ; SPC m b = build/run THIS file (by language)
     "m c" #'compile             ; SPC m c = start a compile
     "m r" #'recompile           ; SPC m r = re-run the last compile command
     "m n" #'next-error          ; SPC m n = jump to next error, from anywhere
@@ -262,17 +269,11 @@
 
   ;; ── Theme ──────────────────────────────────────────────────
   (suhas/leader
-    "u t" #'suhas/theme-menu)  ; SPC u t = theme menu
+    "u t" #'suhas/theme-menu   ; SPC u t = theme menu
+    "u n" #'suhas/next-theme   ; SPC u n = next theme
+    "u p" #'suhas/prev-theme)  ; SPC u p = previous theme
 
-  ;; ── Workspace operations ───────────────────────────────────
-  (suhas/leader
-    "a n" #'tab-bar-new-tab
-    "a k" #'tab-bar-close-tab
-    "a r" #'tab-bar-rename-tab
-    "a l" #'tab-bar-switch-to-next-tab
-    "a h" #'tab-bar-switch-to-prev-tab)
-
-  ;; ── Perspective (buffer-isolated workspaces) ────────────────
+  ;; ── Perspective (THE workspace system; M-1..M-9 jump by number) ─
   (suhas/leader
     "v n" #'persp-switch            ; prompts for a name; creates if it doesn't exist
     "v k" #'persp-kill
@@ -318,16 +319,12 @@
 ;;; BUFFER TOGGLE (C-, jumps between the last two buffers)
 (global-set-key (kbd "C-,") #'suhas/toggle-last-buffer)
 
-;; Workspace switching with Meta+1..9
-(global-set-key (kbd "M-1") (lambda () (interactive) (suhas/switch-to-tab 1)))
-(global-set-key (kbd "M-2") (lambda () (interactive) (suhas/switch-to-tab 2)))
-(global-set-key (kbd "M-3") (lambda () (interactive) (suhas/switch-to-tab 3)))
-(global-set-key (kbd "M-4") (lambda () (interactive) (suhas/switch-to-tab 4)))
-(global-set-key (kbd "M-5") (lambda () (interactive) (suhas/switch-to-tab 5)))
-(global-set-key (kbd "M-6") (lambda () (interactive) (suhas/switch-to-tab 6)))
-(global-set-key (kbd "M-7") (lambda () (interactive) (suhas/switch-to-tab 7)))
-(global-set-key (kbd "M-8") (lambda () (interactive) (suhas/switch-to-tab 8)))
-(global-set-key (kbd "M-9") (lambda () (interactive) (suhas/switch-to-tab 9)))
+;; TTY-safe twins of C-; C-' C-, (terminal Emacs cannot tell those chords
+;; apart from plain keys; C-c <letter> always works). Workspace switching
+;; with M-1..M-9 is defined in window-mgmt.el, next to perspective.
+(global-set-key (kbd "C-c n") #'suhas/next-buffer)
+(global-set-key (kbd "C-c p") #'suhas/prev-buffer)
+(global-set-key (kbd "C-c b") #'suhas/toggle-last-buffer)
 
 ;;; ============================================================
 ;;; SPECIAL BUFFER STATES

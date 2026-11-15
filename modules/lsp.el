@@ -1,10 +1,16 @@
-;;; lsp.el --- Eglot language server client  ... -*- lexical-binding: t; -*- 
+;;; lsp.el --- Eglot language server client  ... -*- lexical-binding: t; -*-
+;;;
+;;; Server commands and policy are knobs in settings.el
+;;; (`suhas/python-lsp-command', `suhas/clangd-query-driver',
+;;; `suhas/lsp-server-overrides', `suhas/lsp-confirm-edits').
 
 (use-package eglot
   :ensure nil
   :commands (eglot eglot-ensure)
   :custom
-  (eglot-confirm-server-edits nil)
+  ;; Ask before a server edits files. (This was nil: an LSP rename changed
+  ;; every file in the codebase without a word.)
+  (eglot-confirm-server-edits suhas/lsp-confirm-edits)
   ;; Keep document highlights disabled, but allow inlay hints.
   (eglot-ignored-server-capabilities
    '(:documentHighlightProvider))
@@ -16,50 +22,64 @@
       (setq eglot-events-buffer-config '(:size 0 :format full))
     (setq eglot-events-buffer-size 0)))
 
+(defun suhas/clangd-command ()
+  "clangd command line; passes --query-driver only when one is configured."
+  (append '("clangd" "--background-index")
+          (when suhas/clangd-query-driver
+            (list (concat "--query-driver=" suhas/clangd-query-driver)))))
+
 ;; One entry per language server. Plain major modes only -- no -ts-mode
-;; variants. Tree-sitter grammars are currently generated at ABI 15 by
-;; default upstream, and Emacs 30.x only supports ABI 13-14, so any
-;; -ts-mode here would either fail to activate tree-sitter or need a
-;; manually-pinned old grammar revision per language (real, but fiddly
-;; and can break again on the next `git pull` of a grammar). None of
-;; this affects LSP features below -- completion, diagnostics,
-;; go-to-def, rename all come from eglot, not from tree-sitter.
+;; variants for now (tree-sitter is deliberately left out; LSP features
+;; -- completion, diagnostics, go-to-def, rename -- all come from eglot,
+;; not from tree-sitter).
 (with-eval-after-load 'eglot
+  (let ((ts-server (eglot-alternatives
+                    ;; Prefers tsgo (Microsoft's Go-based server) when on PATH,
+                    ;; else typescript-language-server.
+                    '(("tsgo" "--lsp" "--stdio")
+                      ("typescript-language-server" "--stdio")))))
+    (add-to-list 'eglot-server-programs
+                 `(python-mode . ,suhas/python-lsp-command))
+    (add-to-list 'eglot-server-programs
+                 `((js-mode typescript-mode) . ,ts-server))
+    ;; TSX goes through web-mode (see langs.el); the language id must say
+    ;; "typescriptreact" or tsserver treats JSX as a syntax error.
+    (add-to-list 'eglot-server-programs
+                 `((web-mode :language-id "typescriptreact") . ,ts-server)))
+  (add-to-list 'eglot-server-programs '(rust-mode . ("rust-analyzer")))
+  (add-to-list 'eglot-server-programs '(go-mode . ("gopls")))
   (add-to-list 'eglot-server-programs
-               '(python-mode . ("pyright-langserver" "--stdio")))
-  ;; Prefers tsgo (Microsoft's newer Go-based server) if it's on PATH,
-  ;; falls back to typescript-language-server otherwise -- you have
-  ;; the latter installed, so that's what actually runs for you.
+               `((c-mode c++-mode) . ,(suhas/clangd-command)))
+  (add-to-list 'eglot-server-programs '(java-mode . ("jdtls")))
   (add-to-list 'eglot-server-programs
-               `((js-mode typescript-mode)
-                 . ,(eglot-alternatives
-                     '(("tsgo" "--lsp" "--stdio")
-                       ("typescript-language-server" "--stdio")))))
-  (add-to-list 'eglot-server-programs
-               '(rust-mode . ("rust-analyzer")))
-  (add-to-list 'eglot-server-programs
-               '((c-mode c++-mode) . ("clangd" "--background-index" "--query-driver=C:/msys64/ucrt64/bin/g++.exe")))
-  (add-to-list 'eglot-server-programs
-               '(java-mode . ("jdtls")))
-  (add-to-list 'eglot-server-programs
-               '(yaml-mode . ("yaml-language-server" "--stdio"))))
+               '(yaml-mode . ("yaml-language-server" "--stdio")))
+  ;; Your own overrides (local.el) go in front of everything above.
+  (dolist (entry suhas/lsp-server-overrides)
+    (add-to-list 'eglot-server-programs entry)))
 
 (dolist (hook '(python-mode-hook
-                js-mode-hook
+                js-mode-hook          ; also covers js-jsx-mode (derived)
                 typescript-mode-hook
                 rust-mode-hook
+                go-mode-hook
                 c-mode-hook
                 c++-mode-hook
                 java-mode-hook
                 yaml-mode-hook))
   (add-hook hook #'eglot-ensure))
 
+(defun suhas/web-mode-maybe-eglot ()
+  "Start Eglot in web-mode buffers that are TSX files.
+web-mode also claims other extensions (.html, .erb...) when installed; only
+TSX is meant to talk to the TypeScript server."
+  (when (and buffer-file-name
+             (string-match-p "\\.tsx\\'" buffer-file-name))
+    (eglot-ensure)))
+(add-hook 'web-mode-hook #'suhas/web-mode-maybe-eglot)
+
 ;; yaml-mode derives from text-mode, not prog-mode, so it misses the
-;; prog-mode-hook -> flymake-mode wiring every other language gets for
-;; free below. Without this, eglot would be running and talking to
-;; yaml-language-server just fine, but nothing would ever display its
-;; diagnostics -- the mode would look broken when it's actually just
-;; invisible.
+;; prog-mode-hook -> flymake-mode wiring every other language gets below.
+;; Without this, eglot would run but nothing would display its diagnostics.
 (add-hook 'yaml-mode-hook #'flymake-mode)
 
 (use-package flymake

@@ -1,5 +1,8 @@
 ;;; langs.el --- Per-language configuration  ... -*- lexical-binding: t; -*-
 
+;; Everything here is a plain (non-tree-sitter) major mode. Language servers
+;; are wired up in lsp.el; formatters in formatter.el.
+
 (use-package python
   :ensure nil
   :mode ("\\.py\\'" . python-mode)
@@ -8,37 +11,53 @@
 
 (use-package js
   :ensure nil
-  :mode ("\\.js\\'" . js-mode)
+  :mode ("\\.js\\'" . js-mode)   ; .jsx -> js-jsx-mode is Emacs's own default
   :custom
   (js-indent-level 2))
 
-;; Plain (non-tree-sitter) TypeScript major mode. Pairs with the
-;; typescript-language-server you installed via npm -- eglot already
-;; knows to launch it (with --stdio) for both js-mode and this, see
-;; lsp.el.
 (use-package typescript-mode
   :ensure t
-  :mode (("\\.ts\\'"  . typescript-mode)
-         ("\\.tsx\\'" . typescript-mode))
+  :mode ("\\.ts\\'" . typescript-mode)
   :custom
   (typescript-indent-level 2))
 
-;; Plain (non-tree-sitter) Rust major mode, for rust-analyzer via eglot.
+;; TSX: typescript-mode has no JSX support, so .tsx buffers use web-mode
+;; (it understands JSX and TypeScript types together). Only .tsx is mapped
+;; to it here. This is the best available WITHOUT tree-sitter; the proper
+;; fix is tsx-ts-mode once tree-sitter is on the table (see README).
+(use-package web-mode
+  :ensure t
+  :mode ("\\.tsx\\'" . web-mode)
+  :custom
+  (web-mode-markup-indent-offset 2)
+  (web-mode-code-indent-offset 2)
+  (web-mode-css-indent-offset 2)
+  :config
+  (add-to-list 'web-mode-content-types-alist '("jsx" . "\\.tsx\\'")))
+
 (use-package rust-mode
   :ensure t
   :mode ("\\.rs\\'" . rust-mode))
 
-;; Plain (non-tree-sitter) YAML major mode. Emacs only ships yaml-ts-mode
-;; built in -- this is the third-party package, same category as
-;; typescript-mode/rust-mode above, so :ensure t (not nil).
+(use-package go-mode
+  :ensure t
+  :mode ("\\.go\\'" . go-mode))
+
 (use-package yaml-mode
   :ensure t
   :mode ("\\.ya?ml\\'" . yaml-mode))
 
-;; c-mode/c++-mode (built into Emacs, no package needed) and java-mode
-;; (ditto) are already the modes Emacs picks by default for
-;; .c/.cpp/.java files, so they need no :mode declaration here -- just
-;; the style tweak below.
+(use-package markdown-mode
+  :ensure t
+  :mode (("\\.md\\'" . markdown-mode)
+         ("README\\'" . markdown-mode)))
+
+(use-package dockerfile-mode
+  :ensure t
+  :mode ("Dockerfile\\(?:\\..*\\)?\\'" . dockerfile-mode))
+
+;; c-mode/c++-mode and java-mode are built in and already the default for
+;; .c/.cpp/.java; only the style tweak below is needed.
 
 (defun suhas/java-style ()
   "4-space indentation, no tabs, trim trailing whitespace on save."
@@ -50,9 +69,8 @@
 
 (add-hook 'java-mode-hook #'suhas/java-style)
 
-;; (Removed a prog-mode-hook that forced `indent-tabs-mode' to nil: core.el
-;; already sets that default, and the hook ALSO ran for makefile-mode
-;; (a prog-mode child), so TAB in a Makefile inserted spaces and `make'
-;; failed with "missing separator". makefile-mode keeps its real tabs now.)
+;; (No global hook forcing `indent-tabs-mode' nil: makefile-mode, a
+;; prog-mode child, needs real tabs or `make' fails with "missing
+;; separator", and go-mode wants tabs too.)
 
 ;;; langs.el ends here
