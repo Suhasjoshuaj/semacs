@@ -24,6 +24,7 @@
   (setq evil-want-keybinding nil)
   :config
   ;; 3. Any configuration that needs evil loaded goes here
+  (customize-set-variable 'evil-undo-system 'undo-redo)
   )
 
 ;; 4. Check the variable and enable evil AFTER the frame and UI load completely
@@ -124,7 +125,7 @@
 (setq evil-want-C-u-scroll t)
 
 ;; After undo, redo with C-r (standard Vim).
-(setq evil-undo-system 'undo-redo)
+;;(setq evil-undo-system 'undo-redo)
 
 ;; When you split a window, new window appears below (not above).
 (setq evil-split-window-below t)
@@ -373,15 +374,21 @@ from before magit opened (same as `q', but the buffer is killed)."
 (define-key suhas/emacs-leader-map (kbd "G") #'suhas/grep-everywhere)
 (define-key suhas/emacs-leader-map (kbd "p") #'suhas/project-switch)
 
-(with-eval-after-load 'dired
-  (define-key dired-mode-map (kbd "SPC") #'suhas/emacs-leader-map))
+;; Why a minor mode and not `define-key' on magit-mode-map / dired-mode-map:
+;; several magit modes (diff, revision, log, process...) bind SPC in their OWN
+;; keymap, and a major-mode map beats its parent's. Minor-mode maps beat every
+;; major-mode map, so this one works in all of them with no per-mode list.
+(define-minor-mode suhas/emacs-leader-mode
+  "SPC opens `suhas/emacs-leader-map' (leader for Emacs-state buffers)."
+  :keymap (let ((map (make-sparse-keymap)))
+            (define-key map (kbd "SPC") #'suhas/emacs-leader-map)
+            map))
 
 ;; In magit, SPC used to scroll the diff down; that is now `C-v' / `M-v'
-;; (DEL still scrolls back up).
-(with-eval-after-load 'magit-mode
-  (define-key magit-mode-map (kbd "SPC") #'suhas/emacs-leader-map))
-(with-eval-after-load 'magit-repos
-  (define-key magit-repolist-mode-map (kbd "SPC") #'suhas/emacs-leader-map))
+;; (DEL still scrolls back up). Hooks on `magit-mode-hook' also cover every
+;; derived mode (status, log, diff, revision, process, refs, stash...).
+(dolist (hook '(dired-mode-hook magit-mode-hook magit-repolist-mode-hook))
+  (add-hook hook #'suhas/emacs-leader-mode))
 
 ;;; ============================================================
 ;;; WHICH-KEY — shows what can follow SPC (or any prefix) after a pause

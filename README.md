@@ -228,8 +228,8 @@ with `:wq`).
 
 To go back to the vim-style magit (evil-collection-magit): in `modules/evil.el`
 add `magit` to the `evil-collection-init` list and delete the two
-`evil-set-initial-state 'magit-...` lines and the two `magit` `define-key` blocks in
-the "SPECIAL BUFFER STATES" section.
+`evil-set-initial-state 'magit-...` lines and the `magit-*-hook` entries in the
+`dolist` of the "SPECIAL BUFFER STATES" section.
 
 ---
 

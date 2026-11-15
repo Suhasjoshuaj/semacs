@@ -25,6 +25,10 @@
   (setq magit-repository-directories
         (mapcar (lambda (dir) (cons dir 1)) (suhas/repo-roots))))
 
+;; ESC closes magit's popup menus (c, P, F, b, l, ...) like C-g does.
+(with-eval-after-load 'transient
+  (define-key transient-map (kbd "<escape>") #'transient-quit-one))
+
 ;; ---------------------------------------------------------------------------
 ;; Commit message buffers (COMMIT_EDITMSG, rebase todo, tag messages...)
 ;; ---------------------------------------------------------------------------
