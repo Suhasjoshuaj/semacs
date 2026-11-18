@@ -1,6 +1,6 @@
 ;;; search.el --- Find files, projects, text and definitions  -*- lexical-binding: t; -*-
 ;;;
-;;; THE MENTAL MODEL (read this once, it replaces three overlapping systems)
+;;; THE MENTAL MODEL
 ;;;
 ;;;   project.el owns  "WHICH project am I in, and which FILE inside it"
 ;;;       SPC p p   switch project (new repos are discovered automatically)
@@ -20,7 +20,7 @@
 ;;; .project (SPC p n creates it; use it for folders that are not git
 ;;; repos, e.g. a flat ~/cpp practice folder).
 ;;;
-(require (quote cl-lib))
+(require 'cl-lib)
 
 ;;; WHERE your repos live is `suhas/repo-root-candidates' in settings.el
 ;;; (override it in local.el).
@@ -48,8 +48,7 @@
   ;; package.json / Makefile / ...: in a monorepo (several services each
   ;; with a package.json) those would split one repo into many projects.
   (project-vc-extra-root-markers '(".project"))
-  ;; After switching, go straight to the file list. (The default pops up
-  ;; a "[f] Find file [g] Find regexp ..." menu you had to answer first.)
+  ;; After switching, go straight to the file list (no command menu).
   (project-switch-commands #'project-find-file))
 
 (defvar suhas/--last-project-scan 0
@@ -81,7 +80,7 @@ monorepo is one project, not one per subfolder."
 (defun suhas/project-rescan (&optional force)
   "Register every project found under `suhas/repo-roots'.
 project.el only learns about a project when you run a project command in
-it, so a freshly cloned repo was invisible to the project list. The scan
+it; this makes freshly cloned repos show up without that. The scan
 looks `suhas/repo-root-depth' levels down and is throttled to once per
 `suhas/project-rescan-interval' seconds unless FORCE (always, interactively).
 Returns the number of newly registered projects."
@@ -167,15 +166,18 @@ Returns the number of newly registered projects."
 (defvar suhas/recentf-timer nil
   "Idle timer that saves the recent-files list (kept so a reload replaces it).")
 
+(defun suhas/recentf-save-quietly ()
+  "Save the recent-files list without a message."
+  (let ((inhibit-message t))
+    (recentf-save-list)))
+
 (use-package recentf
   :ensure nil
-  :init
-  (recentf-mode 1)
   :custom
   ;; Default is 20: far too few for "reopen something from last week".
   (recentf-max-saved-items 500)
   ;; Never stat remote (TRAMP) files while cleaning the list: an unreachable
-  ;; host would freeze Emacs at startup. Remote files are not remembered.
+  ;; host would freeze Emacs. Remote files are not remembered.
   (recentf-auto-cleanup 'never)
   (recentf-exclude '("/tmp/" "\\`/[a-z]+:" "\\.elc\\'" "\\.git/" "/node_modules/"
                      "/elpa/" "/eln-cache/" "/backups/" "/auto-saves/"))
@@ -186,30 +188,31 @@ Returns the number of newly registered projects."
   (setq suhas/recentf-timer
         (run-with-idle-timer 300 t #'suhas/recentf-save-quietly)))
 
-(defun suhas/recentf-save-quietly ()
-  "Save the recent-files list without a message."
-  (let ((inhibit-message t))
-    (recentf-save-list)))
-
-;; Reopen a file at the line where you left it.
-(use-package saveplace
-  :ensure nil
-  :init
-  (save-place-mode 1))
-
 (use-package savehist
   :ensure nil
-  :init
-  (savehist-mode 1)
   :custom
   (history-length 500)
   (savehist-additional-variables '(search-ring regexp-search-ring)))
 
+(defun suhas/memory-first-input ()
+  "Start recent-file and history tracking (first keypress)."
+  (let ((inhibit-message t))   ; no "Loading recentf..." in the echo area
+    (recentf-mode 1))
+  ;; Files opened from the command line were visited before this ran.
+  (dolist (buf (buffer-list))
+    (when-let* ((file (buffer-file-name buf)))
+      (recentf-add-file file)))
+  (savehist-mode 1))
+(add-hook 'suhas/first-input-hook #'suhas/memory-first-input)
+
+;; Reopen a file at the line where you left it. (On from the start: it
+;; has to see the very first file.)
+(save-place-mode 1)
+
 ;; Dired buffers refresh themselves when the directory changed on disk.
 (with-eval-after-load 'dired
   (setq dired-auto-revert-buffer #'dired-directory-changed-p)
-  ;; `a' (open in THIS buffer instead of a new one) is a "disabled command"
-  ;; that asks for confirmation the first time; just allow it.
+  ;; `a' (open in THIS buffer) is a "disabled command"; just allow it.
   (put 'dired-find-alternate-file 'disabled nil))
 
 ;;; ============================================================
@@ -240,6 +243,11 @@ Returns the number of newly registered projects."
     (with-current-buffer sb-buf
       (apply orig-fn args))))
 
+(defun suhas/speedbar-close ()
+  "Close the speedbar window."
+  (interactive)
+  (speedbar-window--close))
+
 (defun suhas/speedbar-mouse-fix ()
   "mouse-1 was translated to mouse-2 (follow-link), which fell through to
 Evil's global mouse-2 = paste-primary-selection binding."
@@ -247,9 +255,6 @@ Evil's global mouse-2 = paste-primary-selection binding."
 
 (use-package speedbar
   :ensure nil
-  ;; The key MUST be bound here (not inside :config): :config only runs
-  ;; once speedbar is loaded, so the binding would not exist until
-  ;; speedbar had already been opened some other way.
   :bind (("C-x l" . suhas/toggle-speedbar-window-focus))
   :commands (speedbar)
   :config

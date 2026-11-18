@@ -1,22 +1,21 @@
 ;;; init.el --- Entry point. Loads modules in dependency order.  -*- lexical-binding: t; -*-
 ;;; NO configuration lives here. This file is a table of contents.
 ;;;
-;;;   early-init.el   before the frame exists (GC, chrome)
+;;;   early-init.el         before the frame exists (GC, package quickstart, chrome)
 ;;;   modules/settings.el   defaults for every knob
+;;;   modules/windows.el    Windows defaults (loaded on Windows only)
 ;;;   local.el              YOUR overrides (untracked; see local.example.el)
-;;;   modules/core.el       package manager + sane defaults
+;;;   modules/core.el       package manager, defaults, leader map, helpers
 ;;;   modules/*.el          one concern each, in the order of `suhas/modules'
 
-;; Per-package load timing goes to *Messages*. Turn this off once your
-;; startup is tuned, or use `M-x use-package-report'.
-(setq use-package-verbose t)
-;;(setq debug-on-error t)
+(when (version< emacs-version "31.1")
+  (error "semacs needs Emacs 31.1 or newer (this is %s)" emacs-version))
 
-;; Where Customize and package.el write their settings. This MUST be set
-;; before the modules run: package.el records `package-selected-packages'
-;; right after every install, and with `custom-file' unset it appends them
-;; to THIS file. The file is loaded at the very end (see CUSTOM FILE below).
-(setq custom-file (expand-file-name "custom.el" user-emacs-directory))
+;; Customize and package.el write here, never into this file. ui.el loads
+;; it (it holds the saved theme, which must come after the theme options).
+(setq custom-file (expand-file-name "custom.el" user-emacs-directory)
+      ;; The saved theme is re-enabled without a "really load?" prompt.
+      custom-safe-themes t)
 
 ;;; ============================================================
 ;;; MODULE LOADER
@@ -31,8 +30,7 @@ The module's name is remembered in `suhas/failed-modules' for
         (progn
           (add-to-list 'suhas/failed-modules name t)
           (display-warning 'semacs
-                           (format "Module `%s' not found: %s does not exist. \
-Is the whole modules/ folder from the zip present?" name file)
+                           (format "Module `%s' not found: %s does not exist." name file)
                            :error))
       (condition-case err
           (load file nil t)
@@ -43,61 +41,60 @@ Is the whole modules/ folder from the zip present?" name file)
                                   name (error-message-string err))
                           :error))))))
 
-(defun suhas/load-local ()
-  "Load local.el (your machine-specific overrides) if it exists."
-  (let ((file (expand-file-name "local.el" user-emacs-directory)))
+(defun suhas/load-optional (file)
+  "Load FILE (relative to the config directory) if it exists; report errors."
+  (let ((file (expand-file-name file user-emacs-directory)))
     (when (file-exists-p file)
       (condition-case err
           (load file nil t)
         (error
          (display-warning 'semacs
-                          (format "local.el failed: %s" (error-message-string err))
+                          (format "%s failed: %s" (file-name-nondirectory file)
+                                  (error-message-string err))
                           :error))))))
 
 ;;; ============================================================
-;;; SETTINGS, THEN LOCAL OVERRIDES
+;;; SETTINGS, PLATFORM DEFAULTS, THEN LOCAL OVERRIDES
 ;;; ============================================================
 
 (setq suhas/failed-modules nil)
 (suhas/load-module "settings")
-;; Everything below reads variables that settings.el defines. Without it
-;; the config cannot work, so stop with ONE clear message instead of a
-;; cascade of "void variable" errors.
 (unless (boundp 'suhas/modules)
   (error "semacs: modules/settings.el is missing or failed to load (looked in %s)"
          (expand-file-name "modules/" user-emacs-directory)))
-(suhas/load-local)
 
-;; Package signature checking (reasoning: see `suhas/package-check-signature').
-(setq package-check-signature suhas/package-check-signature)
+;; The ONLY Windows hook-up. To drop Windows: delete this line and
+;; modules/windows.el.
+(when suhas/windows-p (suhas/load-module "windows"))
+
+(suhas/load-optional "local.el")
 
 ;;; ============================================================
 ;;; STARTUP DIAGNOSTICS AND GC
 ;;; ============================================================
 
+(defvar suhas--gc-timer nil
+  "Idle timer that collects garbage while you are not typing.")
+
+(defun suhas/gc-restore ()
+  "Leave startup GC settings: collect rarely, and preferably while idle."
+  (setq gc-cons-threshold (* 64 1024 1024)
+        gc-cons-percentage 0.1)
+  (when (timerp suhas--gc-timer) (cancel-timer suhas--gc-timer))
+  (setq suhas--gc-timer (run-with-idle-timer 15 t #'garbage-collect)))
+;; Depth -90 (see early-init.el): nothing later on the hook can skip it.
+(add-hook 'emacs-startup-hook #'suhas/gc-restore -90)
+
 (defun suhas/display-startup-time ()
-  "Report startup time and package count in *Messages*."
-  (message "Emacs loaded %d packages in %.2f seconds with %d garbage collections."
-           (length package-activated-list)
+  "Report startup time in *Messages*."
+  (message "semacs: ready in %.2fs (%d packages, %d GCs)"
            (float-time (time-subtract after-init-time before-init-time))
+           (length package-activated-list)
            gcs-done))
 (add-hook 'emacs-startup-hook #'suhas/display-startup-time)
 
-;; early-init.el set the GC threshold huge to speed up startup. Now that
-;; the frame exists and packages are loaded, bring it back to something
-;; reasonable: 8MB is big enough not to stutter, small enough not to pause.
-(defun suhas/gc-reset ()
-  "Restore normal garbage-collection settings after startup."
-  (setq gc-cons-threshold (* 8 1024 1024)
-        gc-cons-percentage 0.1))
-(add-hook 'emacs-startup-hook #'suhas/gc-reset)
-
-;; Language servers send big JSON blobs; the 4KB default read buffer makes
-;; completion and diagnostics chunk constantly.
-(setq read-process-output-max (* 1024 1024))
-
 ;;; ============================================================
-;;; LOAD ORDER — Matters! Don't reorder casually.
+;;; LOAD ORDER
 ;;; ============================================================
 
 ;; CORE always loads first and cannot be switched off.
@@ -106,19 +103,6 @@ Is the whole modules/ folder from the zip present?" name file)
 ;; Everything else: the list lives in settings.el (override in local.el).
 (dolist (module suhas/modules)
   (suhas/load-module module))
-
-;;; ============================================================
-;;; CUSTOM FILE — Isolate auto-generated settings
-;;; ============================================================
-
-;; M-x customize (and the theme menu) write to custom.el, not to this file.
-(when (file-exists-p custom-file)
-  (load custom-file))
-
-;; Fresh machine (no custom.el yet) or a saved theme that no longer
-;; exists: fall back to a built-in theme instead of the default white.
-(unless custom-enabled-themes
-  (load-theme suhas/default-theme t))
 
 (when suhas/failed-modules
   (display-warning 'semacs

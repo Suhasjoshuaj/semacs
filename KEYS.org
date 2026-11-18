@@ -1,0 +1,697 @@
+#+title: semacs key cheat sheet
+#+startup: overview
+
+Open with =SPC c k= (or =C-c SPC c k=). =TAB= on a heading opens it, =S-TAB=
+opens everything. =SPC s s= searches this file.
+
+Every table names the command, so =M-x COMMAND= or =C-h f COMMAND= works too.
+=C-h k= followed by any key tells you what it does in the buffer you are in.
+
+* Notation
+| Key     | Means                                                                |
+|---------+----------------------------------------------------------------------|
+| C-x     | hold Ctrl, press x                                                   |
+| M-x     | hold Alt (Meta), press x                                             |
+| S-x     | hold Shift                                                           |
+| C-M-x   | hold Ctrl and Alt                                                    |
+| C-x C-f | Ctrl+x, then Ctrl+f                                                  |
+| C-x 4 f | Ctrl+x, then 4, then f                                               |
+| SPC     | the leader: Space in Vim normal/visual state, in dired and in magit  |
+| C-c SPC | the same leader from anywhere (insert state, terminals, Vim keys off) |
+| RET DEL | Enter, Backspace                                                     |
+| ESC     | the Escape key                                                       |
+
+Terminal Emacs (=emacs -nw=) cannot send =C-;= =C-'= =C-,= =C-.= =C-`=: use
+the =C-c= alternatives listed next to them.
+
+* semacs keys (anywhere)
+#+name: keys-global
+| Key          | Command                           | Does                                                  |
+|--------------+-----------------------------------+-------------------------------------------------------|
+| C-;          | suhas/next-buffer                 | next file or dired buffer of this workspace           |
+| C-'          | suhas/prev-buffer                 | previous file or dired buffer                         |
+| C-,          | suhas/toggle-last-buffer          | the buffer this window showed before                  |
+| C-c n        | suhas/next-buffer                 | = C-; (terminal Emacs)                                |
+| C-c p        | suhas/prev-buffer                 | = C-' (terminal Emacs)                                |
+| C-c b        | suhas/toggle-last-buffer          | = C-, (terminal Emacs)                                |
+| C-`          | suhas/terminal-toggle             | go to the terminal; from it, hide the panel           |
+| C-c t        | suhas/terminal-toggle             | = C-` (terminal Emacs)                                |
+| C-.          | suhas/terminal-map                | terminal commands (see Terminal)                      |
+| C-c o        | other-window                      | next window (same as C-x o)                           |
+| C-x o        | other-window                      | next window                                           |
+| C-c ESC      | suhas/normal-state                | Vim normal state (also leaves a terminal's insert)    |
+| C-x ESC      | suhas/normal-state                | same as C-c ESC                                       |
+| C-c v        | suhas/toggle-vim-mode             | Vim keys on/off                                       |
+| C-c f        | suhas/find-file-everywhere        | file by name in all repos                             |
+| C-c g        | suhas/grep-project                | ripgrep in the project                                |
+| C-x l        | suhas/toggle-speedbar-window-focus| speedbar file tree                                    |
+| M-1          | suhas/persp-switch-by-key         | workspace 1 (M-1 .. M-9)                              |
+| C-x +        | balance-windows                   | make windows the same size                            |
+| C-x -        | shrink-window                     | window shorter                                        |
+| C-x }        | enlarge-window-horizontally       | window wider                                          |
+| C-x {        | shrink-window-horizontally        | window narrower                                       |
+| C-c SPC      | suhas/leader-map                  | the leader                                            |
+
+=ESC= cancels the region, the minibuffer or a running command, and never
+closes windows; in Vim states it goes to normal state.
+
+=M-1= .. =M-9= switch workspaces, so a numeric argument is =C-1= .. =C-9=
+or =C-u 5=.
+
+* Leader (SPC)
+#+name: keys-leader
+| Key       | Command                         | Does                                          |
+|-----------+---------------------------------+-----------------------------------------------|
+| SPC SPC   | consult-buffer                  | buffers of this workspace + recent files      |
+| SPC k     | suhas/kill-buffer-here          | kill this buffer                              |
+| SPC f f   | find-file                       | open file                                     |
+| SPC f s   | save-buffer                     | save                                          |
+| SPC f r   | consult-recent-file             | recent files                                  |
+| SPC f d   | dired                           | directory browser                             |
+| SPC f y   | suhas/copy-location             | copy path:line (path:from-to with a region)   |
+| SPC s s   | consult-line                    | search this buffer                            |
+| SPC s i   | consult-imenu                   | functions/classes in this file                |
+| SPC s g   | suhas/grep-project              | ripgrep in the project                        |
+| SPC s G   | suhas/grep-everywhere           | ripgrep in all repos                          |
+| SPC s f   | suhas/find-file-everywhere      | file by name in all repos (fd)                |
+| SPC b i   | ibuffer                         | buffer list to mark/kill in bulk              |
+| SPC b n   | suhas/next-buffer               | next buffer                                   |
+| SPC b p   | suhas/prev-buffer               | previous buffer                               |
+| SPC b b   | suhas/toggle-last-buffer        | last buffer                                   |
+| SPC w v   | split-window-right              | split side by side                            |
+| SPC w s   | split-window-below              | split top/bottom                              |
+| SPC w h   | windmove-left                   | window to the left (j k l: down up right)     |
+| SPC w j   | windmove-down                   | window below                                  |
+| SPC w k   | windmove-up                     | window above                                  |
+| SPC w l   | windmove-right                  | window to the right                           |
+| SPC w q   | delete-window                   | close window                                  |
+| SPC w o   | delete-other-windows            | only this window                              |
+| SPC w =   | balance-windows                 | equal sizes                                   |
+| SPC w r   | suhas/rotate-windows            | rotate buffers between editing windows        |
+| SPC v n   | persp-switch                    | switch workspace, or create by typing a name  |
+| SPC v k   | persp-kill                      | kill workspace                                |
+| SPC v r   | persp-rename                    | rename workspace                              |
+| SPC v l   | persp-next                      | next workspace                                |
+| SPC v h   | persp-prev                      | previous workspace                            |
+| SPC v b   | persp-switch-to-buffer*         | buffers of this workspace                     |
+| SPC v a   | persp-add-buffer                | pull a buffer into this workspace             |
+| SPC p p   | suhas/project-switch            | switch project (own workspace)                |
+| SPC p f   | project-find-file               | file in project                               |
+| SPC p b   | project-switch-to-buffer        | buffer of project                             |
+| SPC p d   | project-dired                   | project root in dired                         |
+| SPC p k   | project-kill-buffers            | kill the project's buffers                    |
+| SPC p r   | project-query-replace-regexp    | replace across the project                    |
+| SPC p n   | suhas/project-mark              | make this folder a project (.project file)    |
+| SPC e n   | flymake-goto-next-error         | next diagnostic                               |
+| SPC e p   | flymake-goto-prev-error         | previous diagnostic                           |
+| SPC e l   | consult-flymake                 | list diagnostics                              |
+| SPC e a   | eglot-code-actions              | code action (fix, import, extract ...)        |
+| SPC e r   | eglot-rename                    | rename symbol everywhere                      |
+| SPC e f   | suhas/format-buffer             | format buffer                                 |
+| SPC g s   | magit-status                    | git status                                    |
+| SPC g l   | magit-log-current               | log                                           |
+| SPC g b   | magit-blame                     | blame                                         |
+| SPC g r   | magit-list-repositories         | all repos                                     |
+| SPC g h   | diff-hl-show-hunk               | show this change's diff                       |
+| SPC g x   | diff-hl-revert-hunk             | revert this change                            |
+| SPC g f   | forge-dispatch                  | pull requests / issues                        |
+| SPC d d   | dape                            | start debugger                                |
+| SPC d b   | dape-breakpoint-toggle          | breakpoint                                    |
+| SPC d c   | dape-continue                   | continue                                      |
+| SPC d n   | dape-next                       | step over                                     |
+| SPC d i   | dape-step-in                    | step in                                       |
+| SPC d o   | dape-step-out                   | step out                                      |
+| SPC d r   | dape-restart                    | restart                                       |
+| SPC d q   | dape-quit                       | stop                                          |
+| SPC t t   | suhas/terminal-toggle           | terminal (all of C-. is also under SPC t)     |
+| SPC o a   | org-agenda                      | agenda                                        |
+| SPC o c   | org-capture                     | capture task/note                             |
+| SPC o l   | org-store-link                  | store link to here                            |
+| SPC o i   | org-insert-link                 | insert link                                   |
+| SPC o t   | org-todo                        | cycle TODO state                              |
+| SPC o s   | org-schedule                    | schedule                                      |
+| SPC o d   | org-deadline                    | deadline                                      |
+| SPC o o   | org-toggle-narrow-to-subtree    | focus on this subtree                         |
+| SPC o r f | org-roam-node-find              | find or create note                           |
+| SPC o r i | org-roam-node-insert            | link to a note                                |
+| SPC o r b | org-roam-buffer-toggle          | backlinks                                     |
+| SPC o r c | org-roam-capture                | capture into a new note                       |
+| SPC o r g | org-roam-graph                  | link graph (needs graphviz)                   |
+| SPC u t   | suhas/theme-menu                | pick theme                                    |
+| SPC u n   | suhas/next-theme                | next theme                                    |
+| SPC u p   | suhas/prev-theme                | previous theme                                |
+| SPC l w   | suhas/toggle-line-wrap          | line wrap                                     |
+| SPC c k   | suhas/open-keys                 | this cheat sheet                              |
+| SPC c o   | suhas/open-local                | your local.el                                 |
+| SPC c e   | suhas/open-config               | any config file                               |
+| SPC c r   | suhas/reload-config             | reload config                                 |
+| SPC c h   | suhas/doctor                    | health check                                  |
+| SPC c g   | suhas/treesit-install           | build tree-sitter grammars                    |
+| SPC c s   | suhas/package-snapshot          | record package versions                       |
+| SPC c d   | suhas/package-drift             | compare packages with the snapshot            |
+| SPC c v   | suhas/toggle-vim-mode           | Vim keys on/off                               |
+| SPC c l   | suhas/evil-local-mode-toggle    | Vim keys on/off in this buffer                |
+
+* Terminal
+** C-. (anywhere, also inside a terminal) — same as SPC t
+#+name: keys-terminal
+| Key   | Command                      | Does                                                 |
+|-------+------------------------------+------------------------------------------------------|
+| C-. t | suhas/terminal-toggle        | go to terminal / hide panel                          |
+| C-. n | suhas/terminal-new           | new terminal in the project root (asks for a name)   |
+| C-. s | suhas/terminal-switch        | pick a terminal by name                              |
+| C-. l | suhas/terminal-next          | next terminal of this workspace                      |
+| C-. h | suhas/terminal-prev          | previous terminal                                    |
+| C-. r | suhas/terminal-rename        | rename                                               |
+| C-. k | suhas/terminal-kill          | kill this terminal                                   |
+| C-. K | suhas/terminal-kill-all      | kill all terminals of this workspace                 |
+| C-. p | suhas/terminal-set-position  | panel below or right                                 |
+| C-. y | suhas/terminal-send          | paste region (or path:line) into the terminal        |
+| C-. a | suhas/terminal-attention     | jump to the terminal that rang / needs input         |
+| C-. e | suhas/terminal-edit-input    | edit bash's command line in a buffer                 |
+
+** While typing in a terminal
+Every key not listed here goes to the program, ESC included.
+#+name: keys-in-terminal
+| Key       | Command                     | Does                                              |
+|-----------+-----------------------------+---------------------------------------------------|
+| C-c ESC   | evil-force-normal-state     | Vim normal state: move, search, yank; i/a to type |
+| C-x ESC   | suhas/normal-state          | same                                              |
+| C-c SPC   | suhas/leader-map            | leader                                            |
+| C-y       | ghostel-yank                | paste (your kill ring)                            |
+| M-y       | ghostel-yank-pop            | replace paste with an older kill                  |
+| C-c C-c   | ghostel-send-C-c            | Ctrl-C to the program                             |
+| C-c C-z   | ghostel-send-C-z            | Ctrl-Z                                            |
+| C-c C-d   | ghostel-send-C-d            | Ctrl-D                                            |
+| C-c C-t   | ghostel-copy-mode           | frozen view to select/copy (q leaves)             |
+| C-c C-q   | ghostel-send-next-key       | send the next key raw (e.g. C-c C-q C-x)          |
+| C-c C-r   | evil-ghostel-toggle-send-escape | change where ESC goes in this terminal        |
+
+- Click on the line you are typing: the cursor moves there.
+- Drag with the mouse: selects and copies.
+- Normal state: =p= =P= paste at the cursor, =u= undo, =dd= =dw= =cw= edit
+  the current line. The shell edits one line at a time: =Up=/=Down= are
+  history to it, so cursor moves never cross lines.
+- Multi-line input: bash =C-. e=, Claude Code =Ctrl+G=: the text opens in a
+  buffer. =C-c C-c= (or =:wq=) sends it back, =C-c C-k= aborts.
+- Files a program opens with =$EDITOR= (=git commit= and the like) open in
+  this Emacs, with the same =C-c C-c= / =C-c C-k=.
+
+* Vim (Evil)
+** Normal state: moving
+#+name: keys-evil-normal
+| Key     | Command                          | Does                                         |
+|---------+----------------------------------+----------------------------------------------|
+| h       | evil-backward-char               | left (j down, k up, l right)                 |
+| j       | evil-next-line                   | down                                         |
+| k       | evil-previous-line               | up                                           |
+| l       | evil-forward-char                | right                                        |
+| w       | evil-forward-word-begin          | next word (W: WORD, spaces only)             |
+| b       | evil-backward-word-begin         | previous word (B)                            |
+| e       | evil-forward-word-end            | end of word (E)                              |
+| g e     | evil-backward-word-end           | end of previous word                         |
+| 0       | evil-beginning-of-line           | line start                                   |
+| ^       | evil-first-non-blank             | first character                              |
+| $       | evil-end-of-line                 | line end                                     |
+| g g     | evil-goto-first-line             | first line (5gg: line 5)                     |
+| G       | evil-goto-line                   | last line (5G: line 5)                       |
+| {       | evil-backward-paragraph          | previous paragraph ( } next )                |
+| }       | evil-forward-paragraph           | next paragraph                               |
+| %       | evil-jump-item                   | matching bracket                             |
+| f       | evil-find-char                   | to a character on the line (F backwards)     |
+| t       | evil-find-char-to                | before a character (T backwards)             |
+| ;       | evil-repeat-find-char            | repeat f/t ( , reverse )                     |
+| H       | evil-window-top                  | top of window (M middle, L bottom)           |
+| C-d     | evil-scroll-down                 | half page down                               |
+| C-u     | evil-scroll-up                   | half page up                                 |
+| C-f     | evil-scroll-page-down            | page down (C-b up)                           |
+| z z     | evil-scroll-line-to-center       | centre the cursor line (zt top, zb bottom)   |
+| *       | evil-search-word-forward         | search word under cursor (# backwards)       |
+| /       | evil-search-forward              | search (? backwards)                         |
+| n       | evil-search-next                 | next match (N previous)                      |
+| m       | evil-set-marker                  | set mark a-z                                 |
+| `       | evil-goto-mark                   | jump to mark (' to its line)                 |
+| C-o     | evil-jump-backward               | jump back (gd, search, gg ...)               |
+| TAB     | evil-jump-forward                | jump forward again                           |
+| g ;     | goto-last-change                 | where you last edited                        |
+| g d     | evil-goto-definition             | definition (LSP)                             |
+| ] c     | diff-hl-next-hunk                | next changed hunk ([c previous)              |
+| [ c     | diff-hl-previous-hunk            | previous changed hunk                        |
+
+** Normal state: editing
+#+name: keys-evil-edit
+| Key   | Command                    | Does                                              |
+|-------+----------------------------+---------------------------------------------------|
+| i     | evil-insert                | insert before cursor (I: line start)              |
+| a     | evil-append                | insert after cursor (A: line end)                 |
+| o     | evil-open-below            | new line below (O above)                          |
+| x     | evil-delete-char           | delete character (X before)                       |
+| d     | evil-delete                | delete + motion: dw d$ dd (line) dip (paragraph)  |
+| D     | evil-delete-line           | delete to line end                                |
+| c     | evil-change                | change + motion: cw ciw c$ cc                     |
+| C     | evil-change-line           | change to line end                                |
+| s     | evil-substitute            | replace character (S: whole line)                 |
+| r     | evil-replace               | replace one character (R: replace mode)           |
+| y     | evil-yank                  | copy + motion: yw yy y$ yi(                       |
+| Y     | evil-yank-line             | copy line                                         |
+| p     | evil-paste-after           | paste after (P before)                            |
+| u     | evil-undo                  | undo                                              |
+| C-r   | evil-redo                  | redo                                              |
+| .     | evil-repeat                | repeat last change                                |
+| J     | evil-join                  | join lines                                        |
+| ~     | evil-invert-char           | toggle case                                       |
+| g u   | evil-downcase              | lowercase + motion (gU upper, g~ toggle)          |
+| >     | evil-shift-right           | indent + motion (>> line; < outdent)              |
+| =     | evil-indent                | re-indent + motion (== line)                      |
+| q     | evil-record-macro          | record macro into a register (q again to stop)    |
+| @     | evil-execute-macro         | run macro (@@ again)                              |
+| "     | evil-use-register          | next yank/paste uses a register: "ayy "ap         |
+| v     | evil-visual-char           | select characters (V lines, C-v block)            |
+| g v   | evil-visual-restore        | reselect last selection                           |
+| Z Z   | evil-save-modified-and-close | save and close (ZQ: close without saving)       |
+| C-z   | evil-emacs-state           | Emacs keys in this buffer until C-z again         |
+
+** Text objects (after d, c, y, v)
+| Keys        | Selects                                         |
+|-------------+-------------------------------------------------|
+| iw aw       | word (a: with the space)                        |
+| iW aW       | WORD                                            |
+| is ap ip    | sentence, paragraph                             |
+| i( a( ib    | inside / around ( )                             |
+| i{ a{ iB    | { }                                             |
+| i[ a[       | [ ]                                             |
+| i< a<       | < >                                             |
+| i" a" i' i` | quoted string                                   |
+| it at       | XML/HTML tag contents / whole tag               |
+
+Examples: =ciw= change word, =di(= empty the parentheses, =yap= copy
+paragraph, =vit= select a tag's contents.
+
+** Windows (C-w, normal state)
+#+name: keys-evil-window
+| Key     | Command                  | Does                               |
+|---------+--------------------------+------------------------------------|
+| C-w h   | evil-window-left         | window left (j k l)                |
+| C-w v   | evil-window-vsplit       | split side by side                 |
+| C-w s   | evil-window-split        | split top/bottom                   |
+| C-w c   | evil-window-delete       | close window                       |
+| C-w o   | delete-other-windows     | only this window                   |
+| C-w w   | evil-window-next         | next window                        |
+| C-w =   | balance-windows          | equal sizes                        |
+
+** Insert state
+#+name: keys-evil-insert
+| Key   | Command                    | Does                                 |
+|-------+----------------------------+--------------------------------------|
+| ESC   | evil-normal-state          | back to normal state                 |
+| C-o   | evil-execute-in-normal-state | one normal-state command           |
+| C-w   | evil-delete-backward-word  | delete word before cursor            |
+| C-r   | evil-paste-from-register   | paste a register                     |
+| C-n   | evil-complete-next         | complete from buffer words (C-p)     |
+| C-t   | evil-shift-right-line      | indent line (C-d outdent)            |
+| C-e   | evil-copy-from-below       | copy character from the line below   |
+| C-y   | evil-copy-from-above       | copy character from the line above   |
+| C-v   | evil-quoted-insert         | insert next key literally            |
+
+** Visual state
+#+name: keys-evil-visual
+| Key | Command                  | Does                                  |
+|-----+--------------------------+---------------------------------------|
+| o   | exchange-point-and-mark  | jump to other end of selection        |
+| I   | evil-insert              | block: insert on every line           |
+| A   | evil-append              | block: append on every line           |
+| u   | evil-downcase            | lowercase (U uppercase)               |
+| >   | evil-shift-right         | indent (< outdent)                    |
+| J   | evil-join                | join lines                            |
+| :   | evil-ex                  | command on the selection ('<,'>)      |
+
+** Ex commands (type : in normal state)
+| Command          | Does                                     |
+|------------------+------------------------------------------|
+| :w  :wa          | save / save all                          |
+| :q  :q!  :wq  :x | quit window / without saving / save+quit |
+| :e FILE          | open file                                |
+| :b NAME          | switch buffer                            |
+| :bd              | kill buffer                              |
+| :sp  :vs         | split / vertical split                   |
+| :N               | go to line N                             |
+| :s/a/b/g         | replace on this line (:%s/a/b/g file)    |
+| :g/re/d          | delete every line matching re            |
+| :noh             | clear search highlight                   |
+| :!cmd            | run shell command                        |
+| :r FILE          | insert file                              |
+
+* Emacs editing
+These work with Vim keys off, in Emacs state (=C-z=), in the minibuffer and
+in insert state, except the Ctrl keys insert state keeps for Vim: =C-a= =C-d=
+=C-e= =C-k= =C-n= =C-o= =C-p= =C-q= =C-r= =C-t= =C-v= =C-w= =C-y= =C-z= (see
+Insert state). Language modes refine a few to their own version (=C-M-a=,
+=C-M-h=, =M-a=, =M-q= know about functions and blocks).
+** Moving
+#+name: keys-emacs-move
+| Key     | Command                     | Does                                  |
+|---------+-----------------------------+---------------------------------------|
+| C-f     | forward-char                | right (C-b left)                      |
+| C-n     | next-line                   | down (C-p up)                         |
+| C-a     | move-beginning-of-line      | line start (C-e end)                  |
+| M-f     | forward-word                | next word (M-b back)                  |
+| M-m     | back-to-indentation         | first non-blank                       |
+| M-a     | backward-sentence           | sentence start (M-e end)              |
+| M-}     | forward-paragraph           | next paragraph (M-{ previous)         |
+| M-<     | beginning-of-buffer         | top (M-> bottom)                      |
+| C-v     | scroll-up-command           | page down (M-v up)                    |
+| C-l     | recenter-top-bottom         | centre / top / bottom                 |
+| M-r     | move-to-window-line-top-bottom | cursor to middle / top / bottom    |
+| M-g g   | consult-goto-line           | go to line                            |
+| M-g c   | goto-char                   | go to character position              |
+| M-g i   | consult-imenu               | go to function/class                  |
+| M-g n   | next-error                  | next compile/grep result (M-g p back) |
+| C-M-a   | beginning-of-defun          | function start (C-M-e end)            |
+| C-M-f   | forward-sexp                | over balanced expression (C-M-b back) |
+| C-M-u   | backward-up-list            | out of enclosing brackets             |
+| C-M-d   | down-list                   | into brackets                         |
+
+** Killing, copying, pasting, undo
+#+name: keys-emacs-edit
+| Key          | Command                    | Does                                      |
+|--------------+----------------------------+-------------------------------------------|
+| C-d          | delete-char                | delete character                          |
+| M-d          | kill-word                  | kill word (M-DEL backwards)               |
+| M-DEL        | backward-kill-word         | kill word backwards                       |
+| C-k          | kill-line                  | kill to line end                          |
+| C-S-<backspace> | kill-whole-line         | kill whole line                           |
+| M-k          | kill-sentence              | kill sentence                             |
+| C-M-k        | kill-sexp                  | kill balanced expression                  |
+| C-w          | kill-region                | cut region                                |
+| M-w          | kill-ring-save             | copy region                               |
+| C-y          | yank                       | paste                                     |
+| M-y          | yank-pop                   | cycle older kills after C-y (or pick one) |
+| M-z          | zap-to-char                | kill up to a character                    |
+| C-/          | undo                       | undo (also C-_ and C-x u)                 |
+| C-?          | undo-redo                  | redo (also C-M-_)                         |
+
+** Changing text
+#+name: keys-emacs-change
+| Key       | Command                    | Does                                        |
+|-----------+----------------------------+---------------------------------------------|
+| M-c       | capitalize-word            | Capitalize word                             |
+| M-u       | upcase-word                | UPPERCASE word                              |
+| M-l       | downcase-word              | lowercase word                              |
+| C-x C-u   | upcase-region              | UPPERCASE region (asks once to enable)      |
+| C-x C-l   | downcase-region            | lowercase region (asks once to enable)      |
+| C-t       | transpose-chars            | swap characters                             |
+| M-t       | transpose-words            | swap words                                  |
+| C-x C-t   | transpose-lines            | swap lines                                  |
+| C-M-t     | transpose-sexps            | swap expressions                            |
+| M-SPC     | cycle-spacing              | one space / none / original                 |
+| M-\       | delete-horizontal-space    | delete spaces around cursor                 |
+| M-^       | delete-indentation         | join with previous line                     |
+| C-x C-o   | delete-blank-lines         | collapse blank lines                        |
+| C-o       | open-line                  | new line after cursor, stay                 |
+| C-j       | electric-newline-and-maybe-indent | newline and indent                   |
+| M-;       | comment-dwim               | comment / uncomment region, or add comment  |
+| C-x C-;   | comment-line               | comment / uncomment line                    |
+| M-q       | fill-paragraph             | re-wrap paragraph                           |
+| TAB       | indent-for-tab-command     | indent / complete                           |
+| C-M-\     | indent-region              | indent region                               |
+| C-x TAB   | indent-rigidly             | shift region left/right with arrows         |
+| M-/       | dabbrev-expand             | complete word from open buffers             |
+| C-q       | quoted-insert              | insert next key literally (C-q TAB)         |
+| C-x 8 RET | insert-char                | insert Unicode character by name            |
+| M-$       | ispell-word                | spell-check word                            |
+| C-x z     | repeat                     | repeat last command (z z z ...)             |
+
+** Region, rectangles, registers, bookmarks
+#+name: keys-emacs-region
+| Key       | Command                     | Does                                 |
+|-----------+-----------------------------+--------------------------------------|
+| C-SPC     | set-mark-command            | start region (twice: just mark)      |
+| C-x C-x   | exchange-point-and-mark     | other end of region                  |
+| C-x h     | mark-whole-buffer           | select all                           |
+| M-h       | mark-paragraph              | select paragraph                     |
+| C-M-h     | mark-defun                  | select function                      |
+| M-@       | mark-word                   | extend region by a word              |
+| C-x n n   | narrow-to-region            | show only the region                 |
+| C-x n d   | narrow-to-defun             | show only this function              |
+| C-x n w   | widen                       | show everything again                |
+| C-x SPC   | rectangle-mark-mode         | rectangular selection                |
+| C-x r k   | kill-rectangle              | cut rectangle                        |
+| C-x r y   | yank-rectangle              | paste rectangle                      |
+| C-x r t   | string-rectangle            | replace rectangle with text per line |
+| C-x r o   | open-rectangle              | insert blank rectangle               |
+| C-x r N   | rectangle-number-lines      | number the lines                     |
+| C-x r s   | copy-to-register            | region into a register               |
+| C-x r i   | insert-register             | insert a register                    |
+| C-x r SPC | point-to-register           | position into a register             |
+| C-x r j   | jump-to-register            | jump to register                     |
+| C-x r m   | bookmark-set                | bookmark this place                  |
+| C-x r b   | bookmark-jump               | jump to bookmark                     |
+| C-x r l   | bookmark-bmenu-list         | list bookmarks                       |
+| C-x =     | what-cursor-position        | character info under cursor          |
+| M-=       | count-words-region          | count lines/words/chars              |
+
+** Searching and replacing
+#+name: keys-emacs-search
+| Key     | Command                          | Does                                    |
+|---------+----------------------------------+-----------------------------------------|
+| C-s     | isearch-forward                  | search as you type (C-s again: next)    |
+| C-r     | isearch-backward                 | search backwards                        |
+| C-M-s   | isearch-forward-regexp           | regexp search                           |
+| M-s .   | isearch-forward-symbol-at-point  | search symbol under cursor              |
+| M-s o   | occur                            | list matching lines                     |
+| M-%     | query-replace                    | replace, asking each time (! all)       |
+| C-M-%   | query-replace-regexp             | regexp replace                          |
+| M-s h r | highlight-regexp                 | highlight a pattern                     |
+| M-s h u | unhighlight-regexp               | remove highlight                        |
+
+** Files, buffers, windows, frames, tabs
+#+name: keys-emacs-files
+| Key       | Command                   | Does                                   |
+|-----------+---------------------------+----------------------------------------|
+| C-x C-f   | find-file                 | open file                              |
+| C-x C-s   | save-buffer               | save                                   |
+| C-x s     | save-some-buffers         | save all (asks)                        |
+| C-x C-w   | write-file                | save as                                |
+| C-x C-v   | find-alternate-file       | reopen / replace with another file     |
+| C-x i     | insert-file               | insert a file's contents               |
+| C-x C-q   | read-only-mode            | toggle read-only                       |
+| C-x d     | dired                     | directory                              |
+| C-x C-j   | dired-jump                | dired at this file                     |
+| C-x b     | consult-buffer            | switch buffer                          |
+| C-x C-b   | list-buffers              | buffer list                            |
+| C-x k     | kill-buffer               | kill buffer                            |
+| C-x <left> | previous-buffer          | previous buffer (C-x <right> next)     |
+| C-x 0     | delete-window             | close window                           |
+| C-x 1     | delete-other-windows      | only this window                       |
+| C-x 2     | split-window-below        | split top/bottom                       |
+| C-x 3     | split-window-right        | split side by side                     |
+| C-x ^     | enlarge-window            | taller                                 |
+| C-x }     | enlarge-window-horizontally | wider ( C-x { narrower )             |
+| C-x 4 f   | find-file-other-window    | open file in other window              |
+| C-x 4 b   | switch-to-buffer-other-window | buffer in other window             |
+| C-x 4 0   | kill-buffer-and-window    | kill buffer and its window             |
+| C-x 5 2   | make-frame-command        | new frame (OS window)                  |
+| C-x 5 0   | delete-frame              | close frame                            |
+| C-x t 2   | tab-new                   | new tab                                |
+| C-x t 0   | tab-close                 | close tab                              |
+| C-x t o   | tab-next                  | next tab                               |
+
+** Code (any language with a server)
+#+name: keys-emacs-code
+| Key     | Command                | Does                                      |
+|---------+------------------------+-------------------------------------------|
+| M-.     | xref-find-definitions  | go to definition                          |
+| M-,     | xref-go-back           | back                                      |
+| M-?     | xref-find-references   | references                                |
+| C-M-.   | xref-find-apropos      | find symbol by name                       |
+| C-x `   | next-error             | next compile / grep result                |
+| C-x C-e | eval-last-sexp         | evaluate Lisp before cursor               |
+| M-:     | eval-expression        | evaluate Lisp                             |
+| M-!     | shell-command          | run shell command                         |
+| M-&     | async-shell-command    | run in background                         |
+
+=M-x compile= builds (output is coloured, jumps to the first error);
+=M-x recompile= runs it again.
+
+** Macros
+#+name: keys-emacs-macro
+| Key     | Command                            | Does                         |
+|---------+------------------------------------+------------------------------|
+| <f3>    | kmacro-start-macro-or-insert-counter | start recording            |
+| <f4>    | kmacro-end-or-call-macro           | stop / play                  |
+| C-x (   | kmacro-start-macro                 | start recording              |
+| C-x )   | kmacro-end-macro                   | stop                         |
+| C-x e   | kmacro-end-and-call-macro          | play (e e e ... repeats)     |
+
+** Help
+#+name: keys-emacs-help
+| Key     | Command                  | Does                                 |
+|---------+--------------------------+--------------------------------------|
+| C-h k   | describe-key             | what does this key do here           |
+| C-h f   | describe-function        | about a function                     |
+| C-h v   | describe-variable        | about a variable                     |
+| C-h o   | describe-symbol          | about anything                       |
+| C-h x   | describe-command         | about a command                      |
+| C-h m   | describe-mode            | keys of the current modes            |
+| C-h b   | describe-bindings        | all keys active here                 |
+| C-h w   | where-is                 | which key runs a command             |
+| C-h a   | apropos-command          | commands matching a word             |
+| C-h e   | view-echo-area-messages  | *Messages*                           |
+| C-h l   | view-lossage             | your last keystrokes                 |
+| C-h i   | info                     | manuals                              |
+| C-h t   | help-with-tutorial       | Emacs tutorial                       |
+
+** Commands
+#+name: keys-emacs-misc
+| Key     | Command                     | Does                              |
+|---------+-----------------------------+-----------------------------------|
+| M-x     | execute-extended-command    | run any command by name           |
+| C-u     | universal-argument          | prefix argument (C-u 4, C-u C-u)  |
+| C-g     | keyboard-quit               | cancel                            |
+| C-x C-c | save-buffers-kill-terminal  | quit Emacs                        |
+| C-x M-: | repeat-complex-command      | repeat last minibuffer command    |
+
+* Completion
+** Minibuffer list (vertico)
+#+name: keys-vertico
+| Key   | Command                       | Does                                     |
+|-------+-------------------------------+------------------------------------------|
+| C-j   | vertico-next                  | next candidate (also C-n, down)          |
+| C-k   | vertico-previous              | previous candidate (also C-p, up)        |
+| RET   | vertico-directory-enter       | choose (in a directory: enter it)        |
+| DEL   | vertico-directory-delete-char | backspace; at a / goes up a directory    |
+| M-DEL | vertico-directory-delete-word | up a directory                           |
+| TAB   | vertico-insert                | put candidate into the prompt            |
+| M-RET | vertico-exit-input            | use exactly what you typed               |
+
+Matching (orderless): words separated by spaces, in any order. A word
+ending in =~= matches fuzzily, =!word= excludes, =^word= anchors at the
+start, =,abc= matches initials.
+
+=SPC SPC= (buffers): start with =t SPC= for this workspace's terminals, =b
+SPC= for all buffers, =r SPC= for recent files only. Search commands
+(=SPC s g=) take =#pattern#filter= to filter the results again.
+
+** In-buffer popup (corfu)
+#+name: keys-corfu
+| Key    | Command                  | Does                                     |
+|--------+--------------------------+------------------------------------------|
+| TAB    | corfu-complete           | accept                                   |
+| M-n    | corfu-next               | next (also down; M-p / up previous)      |
+| M-p    | corfu-previous           | previous                                 |
+| M-h    | corfu-info-documentation | documentation of the candidate           |
+| M-g    | corfu-info-location      | where the candidate is defined           |
+| M-t    | corfu-popupinfo-toggle   | documentation popup on/off               |
+| M-SPC  | corfu-insert-separator   | space inside the query (several words)   |
+| C-g    | corfu-quit               | close                                    |
+
+RET is always a newline, never "accept".
+
+* Dired (directory browser; Emacs keys, SPC is the leader)
+#+name: keys-dired
+| Key     | Command                     | Does                                   |
+|---------+-----------------------------+----------------------------------------|
+| RET     | dired-find-file             | open                                   |
+| a       | dired-find-alternate-file   | open in place of the listing           |
+| o       | dired-find-file-other-window | open in other window                  |
+| ^       | dired-up-directory          | parent directory                       |
+| +       | dired-create-directory      | new directory                          |
+| C       | dired-do-copy               | copy                                   |
+| R       | dired-do-rename             | rename / move                          |
+| D       | dired-do-delete             | delete                                 |
+| d       | dired-flag-file-deletion    | flag for deletion (x deletes flagged)  |
+| x       | dired-do-flagged-delete     | delete flagged                         |
+| m       | dired-mark                  | mark                                   |
+| u       | dired-unmark                | unmark (U all)                         |
+| t       | dired-toggle-marks          | invert marks                           |
+| % m     | dired-mark-files-regexp     | mark by pattern                        |
+| g       | revert-buffer               | refresh                                |
+| s       | dired-sort-toggle-or-edit   | sort by name / date                    |
+| (       | dired-hide-details-mode     | hide/show details                      |
+| w       | dired-copy-filename-as-kill | copy file name                         |
+| C-x C-q | dired-toggle-read-only      | rename by editing the listing (C-c C-c saves) |
+| Z       | dired-do-compress           | compress / uncompress                  |
+| !       | dired-do-shell-command      | run command on file                    |
+| &       | dired-do-async-shell-command | same, in background                   |
+| i       | dired-maybe-insert-subdir   | show subdirectory below                |
+| j       | dired-goto-file             | go to file                             |
+| q       | quit-window                 | close                                  |
+
+* Magit (Emacs keys, SPC is the leader)
+** Status buffer (SPC g s)
+#+name: keys-magit
+| Key  | Command                 | Does                                        |
+|------+-------------------------+---------------------------------------------|
+| TAB  | magit-section-toggle    | expand / collapse                           |
+| s    | magit-stage-files       | stage (file, hunk, or selected lines)       |
+| u    | magit-unstage-files     | unstage                                     |
+| S    | magit-stage-modified    | stage all                                   |
+| U    | magit-unstage-all       | unstage all                                 |
+| k    | magit-delete-thing      | discard the change at point                 |
+| c    | magit-commit            | commit menu (c c: commit)                   |
+| P    | magit-push              | push menu (P p)                             |
+| F    | magit-pull              | pull menu (F p)                             |
+| f    | magit-fetch             | fetch menu                                  |
+| b    | magit-branch            | branch menu (b b checkout, b c create)      |
+| l    | magit-log               | log menu (l l)                              |
+| d    | magit-diff              | diff menu                                   |
+| z    | magit-stash             | stash menu                                  |
+| r    | magit-rebase            | rebase menu (r i interactive)               |
+| m    | magit-merge             | merge menu                                  |
+| A    | magit-cherry-pick       | cherry-pick                                 |
+| X    | magit-reset             | reset menu                                  |
+| t    | magit-tag               | tag menu                                    |
+| g    | magit-refresh           | refresh                                     |
+| n    | magit-section-forward   | next section (p previous)                   |
+| RET  | magit-visit-thing       | open file at change                         |
+| $    | magit-process-buffer    | git output log                              |
+| ?    | magit-dispatch          | every command                               |
+| q    | magit-mode-bury-buffer  | close; window layout is restored            |
+
+In menus: ESC or C-g closes. Commit message: =C-c C-c= or =:wq= commits,
+=C-c C-k= or =:q= aborts. Forge (=SPC g f=, =@= in status): pull requests
+and issues.
+
+* Org and org-roam
+#+name: keys-org
+| Key       | Command                      | Does                                    |
+|-----------+------------------------------+-----------------------------------------|
+| TAB       | org-cycle                    | fold / unfold heading                   |
+| S-TAB     | org-shifttab                 | fold / unfold all                       |
+| M-RET     | org-meta-return              | new heading / list item                 |
+| M-h       | org-metaleft                 | promote (M-l demote)                    |
+| M-l       | org-metaright                | demote                                  |
+| M-k       | org-metaup                   | move up (M-j down)                      |
+| M-j       | org-metadown                 | move down                               |
+| C-c C-t   | org-todo                     | cycle TODO                              |
+| S-<left>  | org-shiftleft                | previous TODO state / date              |
+| S-<up>    | org-shiftup                  | priority up / date                      |
+| C-c C-s   | org-schedule                 | schedule                                |
+| C-c C-d   | org-deadline                 | deadline                                |
+| C-c .     | org-timestamp                | insert date                             |
+| C-c C-c   | org-ctrl-c-ctrl-c            | toggle checkbox / run code block / ...  |
+| C-c C-o   | org-open-at-point            | open link                               |
+| C-c C-l   | org-insert-link              | insert / edit link                      |
+| C-c &     | org-mark-ring-goto           | back after following a link            |
+| C-c C-q   | org-set-tags-command         | tags                                    |
+| C-c C-w   | org-refile                   | move heading elsewhere                  |
+| C-c ^     | org-sort                     | sort                                    |
+| C-c /     | org-sparse-tree              | show only matching headings             |
+| C-c C-,   | org-insert-structure-template | insert block (src, quote ...)          |
+| C-c '     | org-edit-special             | edit code block in its own mode         |
+| C-c -     | org-ctrl-c-minus             | cycle list style                        |
+
+Agenda (=SPC o a=): =n= / =p= move, =RET= open, =t= TODO state, =.= today,
+=f= / =b= forward / back, =d= =w= =m= day / week / month, =q= quit.
+org-roam: =SPC o r ...= (see Leader).
+
+* Other buffers
+| Buffer               | Keys                                                  |
+|----------------------+-------------------------------------------------------|
+| help                 | q quit, TAB next link, RET follow, l / r back / forward |
+| ibuffer (SPC b i)    | m mark, d flag delete, x execute, S save, g refresh, q |
+| xref results         | RET open, n / p next / previous                       |
+| *compilation* / grep | RET open, n / p next / previous error, g re-run       |
+| flymake list         | RET open, q quit                                      |
+| speedbar (C-x l)     | SPC / o expand, n / p move, q close                   |
+| ediff                | n / p next / previous diff, a / b take A / B, q quit  |

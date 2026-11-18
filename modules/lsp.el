@@ -1,86 +1,91 @@
-;;; lsp.el --- Eglot language server client  ... -*- lexical-binding: t; -*-
+;;; lsp.el --- Eglot language server client  -*- lexical-binding: t; -*-
 ;;;
-;;; Server commands and policy are knobs in settings.el
-;;; (`suhas/python-lsp-command', `suhas/clangd-query-driver',
-;;; `suhas/lsp-server-overrides', `suhas/lsp-confirm-edits').
+;;; Eglot (built in) already knows the usual server for every language:
+;;; rust-analyzer, gopls, clangd, jdtls, typescript-language-server,
+;;; yaml-language-server, bash-language-server ... Install a server and it
+;;; is used; nothing has to be registered here. Only the exceptions are:
+;;; `suhas/python-lsp-command' and `suhas/lsp-server-overrides' (settings.el).
+;;; SPC c h lists which servers are installed.
 
 (use-package eglot
   :ensure nil
-  :commands (eglot eglot-ensure)
   :custom
-  ;; Ask before a server edits files. (This was nil: an LSP rename changed
-  ;; every file in the codebase without a word.)
   (eglot-confirm-server-edits suhas/lsp-confirm-edits)
-  ;; Keep document highlights disabled, but allow inlay hints.
-  (eglot-ignored-server-capabilities
-   '(:documentHighlightProvider))
+  (eglot-ignored-server-capabilities '(:documentHighlightProvider))
+  ;; Shut a server down when its last buffer is closed.
   (eglot-autoshutdown t)
+  ;; Never freeze the editor while a server starts (jdtls takes seconds).
+  (eglot-sync-connect nil)
+  ;; No log of every JSON message.
+  (eglot-events-buffer-config '(:size 0 :format full))
   :config
-  ;; Don't keep a log of every JSON message (memory + speed). Eglot 1.17
-  ;; (Emacs 30+) replaced the `-size' variable with `-config'.
-  (if (boundp 'eglot-events-buffer-config)
-      (setq eglot-events-buffer-config '(:size 0 :format full))
-    (setq eglot-events-buffer-size 0)))
-
-(defun suhas/clangd-command ()
-  "clangd command line; passes --query-driver only when one is configured."
-  (append '("clangd" "--background-index")
-          (when suhas/clangd-query-driver
-            (list (concat "--query-driver=" suhas/clangd-query-driver)))))
-
-;; One entry per language server. Plain major modes only -- no -ts-mode
-;; variants for now (tree-sitter is deliberately left out; LSP features
-;; -- completion, diagnostics, go-to-def, rename -- all come from eglot,
-;; not from tree-sitter).
-(with-eval-after-load 'eglot
-  (let ((ts-server (eglot-alternatives
-                    ;; Prefers tsgo (Microsoft's Go-based server) when on PATH,
-                    ;; else typescript-language-server.
-                    '(("tsgo" "--lsp" "--stdio")
-                      ("typescript-language-server" "--stdio")))))
-    (add-to-list 'eglot-server-programs
-                 `(python-mode . ,suhas/python-lsp-command))
-    (add-to-list 'eglot-server-programs
-                 `((js-mode typescript-mode) . ,ts-server))
-    ;; TSX goes through web-mode (see langs.el); the language id must say
-    ;; "typescriptreact" or tsserver treats JSX as a syntax error.
-    (add-to-list 'eglot-server-programs
-                 `((web-mode :language-id "typescriptreact") . ,ts-server)))
-  (add-to-list 'eglot-server-programs '(rust-mode . ("rust-analyzer")))
-  (add-to-list 'eglot-server-programs '(go-mode . ("gopls")))
+  ;; TypeScript/JavaScript: prefer tsgo (Microsoft's native server) when it
+  ;; is installed, else typescript-language-server.
   (add-to-list 'eglot-server-programs
-               `((c-mode c++-mode) . ,(suhas/clangd-command)))
-  (add-to-list 'eglot-server-programs '(java-mode . ("jdtls")))
-  (add-to-list 'eglot-server-programs
-               '(yaml-mode . ("yaml-language-server" "--stdio")))
-  ;; Your own overrides (local.el) go in front of everything above.
-  (dolist (entry suhas/lsp-server-overrides)
+               `(((js-mode :language-id "javascript")
+                  (js-ts-mode :language-id "javascript")
+                  (tsx-ts-mode :language-id "typescriptreact")
+                  (typescript-ts-mode :language-id "typescript"))
+                 . ,(eglot-alternatives
+                     '(("tsgo" "--lsp" "--stdio")
+                       ("typescript-language-server" "--stdio")))))
+  (when suhas/python-lsp-command
+    (add-to-list 'eglot-server-programs
+                 `((python-mode python-ts-mode) . ,suhas/python-lsp-command)))
+  ;; Your own entries (local.el) go in front of everything.
+  (dolist (entry (reverse suhas/lsp-server-overrides))
     (add-to-list 'eglot-server-programs entry)))
 
-(dolist (hook '(python-mode-hook
-                js-mode-hook          ; also covers js-jsx-mode (derived)
-                typescript-mode-hook
-                rust-mode-hook
-                go-mode-hook
-                c-mode-hook
-                c++-mode-hook
-                java-mode-hook
-                yaml-mode-hook))
-  (add-hook hook #'eglot-ensure))
+;;; ============================================================
+;;; AUTO-START — only when it is cheap and certain to work
+;;; ============================================================
 
-(defun suhas/web-mode-maybe-eglot ()
-  "Start Eglot in web-mode buffers that are TSX files.
-web-mode also claims other extensions (.html, .erb...) when installed; only
-TSX is meant to talk to the TypeScript server."
+;; `eglot-ensure' in a mode hook complains on every file whose server is
+;; not installed, and starts servers on remote hosts. This variant starts
+;; one only for local files, only when the server program exists, and says
+;; so ONCE per language when it does not.
+
+(defvar suhas/--lsp-reported nil
+  "Major modes already reported as having no language server installed.")
+
+(defun suhas/--lsp-start ()
+  "Connect this buffer to its language server, if one is installed."
+  (remove-hook 'post-command-hook #'suhas/--lsp-start t)
   (when (and buffer-file-name
-             (string-match-p "\\.tsx\\'" buffer-file-name))
-    (eglot-ensure)))
-(add-hook 'web-mode-hook #'suhas/web-mode-maybe-eglot)
+             (not (bound-and-true-p eglot--managed-mode))
+             (require 'eglot nil t))
+    (condition-case err
+        (let* ((guess (eglot--guess-contact))
+               (contact (nth 3 guess))
+               (program (car-safe contact)))
+          (cond
+           ((null contact))             ; Eglot knows no server for this mode
+           ((and (stringp program) (not (executable-find program)))
+            (error "`%s' is not installed" program))
+           (t (apply #'eglot--connect guess))))
+      (error
+       (unless (memq major-mode suhas/--lsp-reported)
+         (push major-mode suhas/--lsp-reported)
+         (message "No language server for %s: %s  (SPC c h lists them)"
+                  major-mode (error-message-string err)))))))
 
-;; yaml-mode derives from text-mode, not prog-mode, so it misses the
-;; prog-mode-hook -> flymake-mode wiring every other language gets below.
-;; Without this, eglot would run but nothing would display its diagnostics.
-(add-hook 'yaml-mode-hook #'flymake-mode)
+(defun suhas/lsp-ensure ()
+  "Arrange for a language server to start for this buffer.
+Deferred to the end of the current command, so per-directory environments
+\(direnv) are already in place when the server is looked up."
+  (when (and suhas/lsp-auto-start
+             buffer-file-name
+             (not (file-remote-p buffer-file-name))
+             (not (derived-mode-p 'emacs-lisp-mode)))
+    (add-hook 'post-command-hook #'suhas/--lsp-start 'append t)))
+
+;; yaml-ts-mode is a text mode, hence the second hook.
+(add-hook 'prog-mode-hook #'suhas/lsp-ensure)
+(add-hook 'yaml-ts-mode-hook #'suhas/lsp-ensure)
+
+;;; ============================================================
+;;; FLYMAKE — diagnostics
+;;; ============================================================
 
 (use-package flymake
   :ensure nil

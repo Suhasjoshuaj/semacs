@@ -70,6 +70,10 @@ tramp
 # Machine-specific overrides (copy local.example.el -> local.el)
 local.el
 
-# Runtime state written by packages added in this version
+# Runtime state
 forge-database.sqlite
 persp-state*
+env-cache.el
+package-quickstart.el
+package-quickstart.elc
+ghostel/

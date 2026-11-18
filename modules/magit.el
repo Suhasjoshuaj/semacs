@@ -1,27 +1,22 @@
-;;; magit.el --- Git integration (optional)  ... -*- lexical-binding: t; -*-
-;; Magit is on NonGNU ELPA / MELPA. If it can't be installed, simply don't
-;; use SPC g s.
-;;
-;; Keys: magit buffers run in plain EMACS state with magit's native keys
-;; (set in evil.el, "SPECIAL BUFFER STATES"); SPC k kills one, SPC SPC is
-;; consult-buffer. Cheat sheet in README.md.
+;;; magit.el --- Git: magit and change marks (diff-hl)  -*- lexical-binding: t; -*-
+;;;
+;;; Magit buffers run in Emacs state with magit's own keys (see evil.el);
+;;; SPC is the normal leader there too. Cheat sheet in README.md.
 
 (use-package magit
-  :ensure t
-  :defer t
   :commands (magit-status magit-log-current magit-blame magit-diff-unstaged
              magit-list-repositories)
+  :bind (:map magit-mode-map
+          ("k" . nil)
+          ("X" . magit-discard))
   :custom
   ;; Status takes the whole frame (it needs the room)...
   (magit-display-buffer-function #'magit-display-buffer-fullframe-status-v1)
-  ;; ...and `q' puts your previous window layout back. Without this,
-  ;; fullframe calls `delete-other-windows' and `q' did NOT restore it:
-  ;; every SPC g s + q destroyed your terminal split. (This pairing is the
-  ;; one recommended in magit's manual.)
+  ;; ...and `q' puts your previous window layout (terminal panel
+  ;; included) back.
   (magit-bury-buffer-function #'magit-restore-window-configuration)
   :config
-  ;; SPC g r (magit-list-repositories) and `magit-status' from a buffer
-  ;; that is not in a repo (e.g. *scratch*) now offer all your repos.
+  ;; SPC g r and `magit-status' outside a repo offer all your repos.
   (setq magit-repository-directories
         (mapcar (lambda (dir) (cons dir suhas/repo-root-depth)) (suhas/repo-roots))))
 
@@ -35,9 +30,8 @@
 ;; These are "with-editor" buffers: git is WAITING for Emacs, and only
 ;; `with-editor-finish' (C-c C-c) or `with-editor-cancel' (C-c C-k) tells it
 ;; to continue. A plain `:w' only writes the file -- git is never told, the
-;; commit does not happen. Evil's `:wq' / `:x' / `ZZ' / `:q' / `ZQ' closed the
-;; buffer WITHOUT informing git, leaving a half-dead session. Inside a
-;; with-editor buffer they now do the right thing:
+;; commit does not happen. So inside a with-editor buffer Evil's commands are
+;; mapped to the right thing:
 ;;   :wq  :x  ZZ   -> finish (commit)
 ;;   :q   :q!  ZQ  -> cancel (abort the commit)
 ;;   :w            -> just save the draft (git keeps waiting; finish later)
@@ -59,18 +53,40 @@
   (advice-add 'evil-save-modified-and-close :around #'suhas/with-editor-finish-advice)
   (advice-add 'evil-quit                    :around #'suhas/with-editor-cancel-advice))
 
+;; Change marks in the fringe, and the review loop for edits you did not
+;; type yourself (a formatter, a merge, a coding agent):
+;;   ]c / [c   next / previous changed hunk
+;;   SPC g h   show the hunk's diff inline       SPC g x   revert the hunk
 (use-package diff-hl
-  :ensure t
-  :defer t  ; 1. Explicitly tell Emacs not to touch this package at startup
   :hook ((prog-mode . turn-on-diff-hl-mode)
-         (vc-dir-mode . turn-on-diff-hl-mode)) ; 2. Modern way to append hooks cleanly
+         (text-mode . turn-on-diff-hl-mode)
+         (conf-mode . turn-on-diff-hl-mode))
+  :commands (diff-hl-next-hunk diff-hl-previous-hunk diff-hl-show-hunk
+             diff-hl-revert-hunk)
+  :custom
+  (diff-hl-disable-on-remote t)
   :config
-  ;; 3. This block now safely runs ONLY when diff-hl wakes up for the first time
+  ;; Marks follow unsaved edits too.
   (diff-hl-flydiff-mode 1)
-  ;; Refresh the fringe marks right after you stage/commit in magit
-  ;; (otherwise they stay stale until your next edit).
+  ;; No fringe in terminal Emacs: use the margin there.
+  (unless (display-graphic-p)
+    (diff-hl-margin-mode 1))
+  ;; Refresh the marks right after staging/committing in magit.
   (with-eval-after-load 'magit
     (add-hook 'magit-post-refresh-hook #'diff-hl-magit-post-refresh)))
 
+(with-eval-after-load 'evil
+  (evil-define-key* 'normal 'global
+    (kbd "]c") #'diff-hl-next-hunk
+    (kbd "[c") #'diff-hl-previous-hunk))
+
+(suhas/leader
+ "g"   "git"
+ "g s" #'magit-status
+ "g l" #'magit-log-current
+ "g b" #'magit-blame
+ "g r" #'magit-list-repositories
+ "g h" #'diff-hl-show-hunk
+ "g x" #'diff-hl-revert-hunk)
+
 ;;; magit.el ends here
- 

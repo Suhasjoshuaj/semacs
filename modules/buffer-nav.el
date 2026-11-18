@@ -1,57 +1,62 @@
-;;; buffer-nav.el --- Smart buffer rotation and toggle  ... -*- lexical-binding: t; -*-
+;;; buffer-nav.el --- Cycle through file buffers, toggle the last two  -*- lexical-binding: t; -*-
 ;;;
-;;;   C-;  next code buffer        C-'  previous code buffer
-;;;   C-,  jump between the last two buffers
+;;;   C-;  next file/dired buffer  C-'  previous file/dired buffer
+;;;   C-,  jump between the last two buffers of this window
+;;;   (terminal Emacs: C-c n / C-c p / C-c b; leader: SPC b n / p / b)
 
-(defvar suhas/last-buffer nil
-  "The buffer you just left. Used by `suhas/toggle-last-buffer' (C-,).")
+(defun suhas/--cycle-buffer-p (buf)
+  "Non-nil if BUF takes part in C-; / C-' cycling: a file or dired buffer
+of this workspace."
+  (and (or (buffer-file-name buf)
+           (provided-mode-derived-p (buffer-local-value 'major-mode buf)
+                                    'dired-mode))
+       (suhas/persp-buffer-p buf)))
 
-;; Magit/xref buffers are already covered by "^\\*" (their names start with
-;; a star). The old unanchored "magit" and "xref" patterns also hid every
-;; FILE with that text in its name -- including your own modules/magit.el.
-(defvar suhas/buffer-skip-patterns
-  '("^\\*"           ; Skip *buffers*
-    "^ "             ; Skip space-prefixed
-    "^TAGS$")
-  "Patterns to skip when cycling buffers.")
+(defun suhas/--leave-terminal-panel ()
+  "From the terminal panel, move to the window you were editing in.
+Buffer cycling then changes that window, never the panel."
+  (when (suhas/terminal-buffer-p (current-buffer))
+    (when-let* ((win (get-mru-window nil nil t)))
+      (select-window win))))
 
-(defun suhas/should-skip-buffer-p (buf-name)
-  "Return t if buffer should be skipped."
-  (seq-some (lambda (pattern) (string-match-p pattern buf-name))
-            suhas/buffer-skip-patterns))
-
-(defun suhas/get-next-buffer (direction)
-  "Get next/previous code buffer: skips special buffers, and only
-considers buffers that belong to the current perspective."
-  (suhas/mru-step (seq-filter #'suhas/persp-buffer-p (buffer-list))
-                   direction
-                   (lambda (buf) (suhas/should-skip-buffer-p (buffer-name buf)))))
+(defun suhas/cycle-buffer (step)
+  "Switch STEP places along this workspace's buffers.
+The order is by name, so it is the same ring in both directions (like
+editor tabs) and never bounces between two buffers."
+  (suhas/--leave-terminal-panel)
+  (let* ((ring (sort (seq-filter #'suhas/--cycle-buffer-p (buffer-list))
+                     :key #'buffer-name :lessp #'string<))
+         (pos (seq-position ring (current-buffer))))
+    (cond ((null ring) (message "No other buffers in this workspace"))
+          ((null pos) (switch-to-buffer (car ring)))
+          (t (switch-to-buffer (nth (mod (+ pos step) (length ring)) ring))))))
 
 (defun suhas/next-buffer ()
-  "Cycle to next code buffer (C-;). Tracks last buffer for toggle."
+  "Next file or dired buffer of this workspace (C-;)."
   (interactive)
-  (let ((cur (current-buffer)))
-    (switch-to-buffer (suhas/get-next-buffer 'next))
-    (setq suhas/last-buffer cur)))
+  (suhas/cycle-buffer 1))
 
 (defun suhas/prev-buffer ()
-  "Cycle to previous code buffer (C-'). Tracks last buffer for toggle."
+  "Previous file or dired buffer of this workspace (C-')."
   (interactive)
-  (let ((cur (current-buffer)))
-    (switch-to-buffer (suhas/get-next-buffer 'prev))
-    (setq suhas/last-buffer cur)))
+  (suhas/cycle-buffer -1))
 
 (defun suhas/toggle-last-buffer ()
-  "Toggle between the current and the previous buffer (C-,).
-Falls back to `other-buffer' when the remembered buffer was killed or
-belongs to another perspective (switching to a dead buffer is an error)."
+  "Switch to the buffer this window showed before (C-,).
+Works after ANY kind of switch (SPC SPC, gd, a project jump), because it
+reads the window's own history instead of remembering a buffer itself."
   (interactive)
-  (let ((cur (current-buffer)))
-    (if (and (buffer-live-p suhas/last-buffer)
-             (not (eq suhas/last-buffer cur))
-             (suhas/persp-buffer-p suhas/last-buffer))
-        (progn (switch-to-buffer suhas/last-buffer)
-               (setq suhas/last-buffer cur))
-      (switch-to-buffer (other-buffer)))))
+  (suhas/--leave-terminal-panel)
+  (let ((previous (seq-find
+                   (lambda (buf)
+                     (and (buffer-live-p buf)
+                          (not (eq buf (current-buffer)))
+                          (not (minibufferp buf))
+                          (suhas/persp-buffer-p buf)))
+                   (append (mapcar #'car (window-prev-buffers))
+                           (buffer-list)))))
+    (if previous
+        (switch-to-buffer previous)
+      (message "No previous buffer"))))
 
 ;;; buffer-nav.el ends here

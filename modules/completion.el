@@ -1,296 +1,207 @@
-;;; completion.el --- Vertico, Marginalia, Consult, Corfu ... -*- lexical-binding: t; -*-
-;;; Fast fuzzy completion in minibuffer (Vertico) and in-buffer (Corfu).
+;;; completion.el --- Vertico, Orderless, Marginalia, Consult, Corfu, Cape  -*- lexical-binding: t; -*-
 ;;;
-;;; How they work together:
-;;; - vertico: Vertical list UI for minibuffer completion (file, buffer, command selection)
-;;; - marginalia: Adds annotations (file size, command docstring, etc)
-;;; - consult: Enhanced commands (buffer switch with preview, grep with preview, etc)
-;;; - orderless: space-separated words in any order — "py find" matches "python-find-file"
-;;; - corfu: In-buffer completion popup (code suggestions, LSP completions)
+;;;   vertico     vertical list for every minibuffer prompt
+;;;   orderless   space-separated words in any order
+;;;   marginalia  annotations next to candidates
+;;;   consult     search/navigation commands with live preview
+;;;   corfu       in-buffer completion popup (LSP, words, paths)
+;;;   cape        extra completion sources for corfu
 ;;;
-;;; Projects, find-file-anywhere, grep, recent files and speedbar live in
-;;; search.el. This file is only the completion UI + the consult tuning.
-;;;
-;;; External binaries (used from search.el):
-;;;   Arch:    sudo pacman -S fd ripgrep
-;;;   Debian:  sudo apt install fd-find ripgrep     (binary is `fdfind'; handled)
-;;;   Windows: scoop install fd ripgrep   (or winget install sharkdp.fd BurntSushi.ripgrep.MSVC)
+;;; None of them load during startup: the UI modes switch on at the first
+;;; keypress (`suhas/first-input-hook'), consult loads on its first command.
+;;; Projects, find-anywhere and grep wrappers live in search.el.
 
 ;;; ============================================================
-;;; VERTICO — Vertical completion list
+;;; VERTICO
 ;;; ============================================================
-
-;; Replaces Emacs' default horizontal completion menu.
-;; Works for any minibuffer task: find-file, switch-buffer, M-x, etc.
 
 (use-package vertico
-  :init
-  (vertico-mode 1)
   :custom
-  (vertico-count 12)        ; Show 12 candidates at a time
-  (vertico-resize nil)      ; Fixed-height list (no jumping as you type)
-  (vertico-cycle t)         ; Wrap around when you reach the end
-  ;; List above the prompt (bottom-anchored). This DOES work from :custom:
-  ;; use-package applies it through Custom, and the mode is autoloaded.
-  (vertico-reverse-mode t))
-
-;; vertico-directory: Makes file navigation smooth with DEL to go back.
-(use-package vertico-directory
-  :after vertico
-  :ensure nil              ; Built-in, no separate install
+  (vertico-count 12)
+  (vertico-resize nil)      ; fixed height, no jumping while typing
+  (vertico-cycle t)
   :bind (:map vertico-map
+              ("C-j" . vertico-next)
+              ("C-k" . vertico-previous)
+              ;; DEL at a directory boundary goes up one level.
               ("RET" . vertico-directory-enter)
-              ("DEL"  . vertico-directory-delete-char)
+              ("DEL" . vertico-directory-delete-char)
               ("M-DEL" . vertico-directory-delete-word))
   :hook (rfn-eshadow-update-overlay . vertico-directory-tidy))
 
-;;; ============================================================
-;;; ORDERLESS — Fuzzy matching engine
-;;; ============================================================
+(defun suhas/completion-first-input ()
+  "Switch the completion UI on (first keypress).
+Each piece is optional: a package that is not installed yet (first start
+without network) is skipped and the built-in completion keeps working."
+  (require 'orderless nil t)
+  (dolist (mode '(vertico-mode
+                  vertico-reverse-mode   ; list above the prompt
+                  marginalia-mode
+                  global-corfu-mode
+                  corfu-popupinfo-mode))
+    (when (fboundp mode)
+      (funcall mode 1))))
+(add-hook 'suhas/first-input-hook #'suhas/completion-first-input)
 
-;; By default, Emacs requires exact substring matches.
-;; Orderless lets you type space-separated words in any order,
-;; and orderless-flex lets you type out-of-order fuzzy fragments
-;; (e.g. "cvf" matches "completion-vertico-file").
+;;; ============================================================
+;;; ORDERLESS
+;;; ============================================================
 
 (use-package orderless
   :custom
-  (completion-styles '(orderless basic))
-  ;; Emacs ships per-category defaults (buffer, project-file, xref-location,
-  ;; info-menu...) that use plain `substring' matching and take PRIORITY
-  ;; over `completion-styles'. So Orderless was silently NOT used for
-  ;; `SPC SPC' buffers, `SPC p f' project files or xref results:
-  ;; "foo bar" (two words) found nothing there. nil = everything uses the
-  ;; styles below, so every list behaves the same way.
-  (completion-category-defaults nil)
-  (completion-category-overrides
-   '(;; find-file / recent files: orderless first, partial-completion as
-     ;; fallback so "us/lo/bin" -> /usr/local/bin still works.
-     (file (styles orderless partial-completion))
-     ;; project files get true fuzzy matching (see style below).
-     (project-file (styles suhas-fuzzy))))
-  ;; Predictable everywhere else: words in any order, as literals or
-  ;; regexps, or initials ("cvf" -> completion-vertico-file only when the
-  ;; words start with c, v, f). `orderless-flex' is deliberately NOT
-  ;; global: it matches almost anything and turns M-x / buffer lists into
-  ;; noise. You can still ask for it on demand by ending a word with ~
-  ;; ("cvf~" = flex).
+  ;; Words as literals, regexps or initials. Flex is deliberately not
+  ;; global (it turns M-x into noise); end a word with ~ to ask for it.
   (orderless-matching-styles
    '(orderless-literal orderless-regexp orderless-initialism))
   :config
-  ;; Fuzzy style used ONLY for the project file list (SPC p f), where the
-  ;; candidates are a static list of relative paths: "srcmain" finds
-  ;; "src/main.c". (Not for consult-fd/ripgrep: those hand your input to
-  ;; fd/rg, and Orderless only filters what you type AFTER a `#'.)
+  ;; True fuzzy, for project files only ("srcmain" finds src/main.c).
   (orderless-define-completion-style suhas-fuzzy
     (orderless-matching-styles
-     '(orderless-literal orderless-regexp orderless-flex))))
+     '(orderless-literal orderless-regexp orderless-flex)))
+  (setq completion-styles '(orderless basic)
+        ;; Emacs ships per-category defaults (buffer, project-file, ...)
+        ;; that take priority over `completion-styles'. nil = every list
+        ;; uses the styles here and behaves the same way.
+        completion-category-defaults nil
+        completion-category-overrides
+        '(;; partial-completion as fallback: "us/lo/bin" -> /usr/local/bin
+          (file (styles orderless partial-completion))
+          (project-file (styles suhas-fuzzy)))))
 
 ;;; ============================================================
-;;; MARGINALIA — Annotations in completion menu
+;;; MARGINALIA
 ;;; ============================================================
 
-;; Shows helpful context next to each candidate:
-;; - M-x: command's docstring
-;; - find-file: file size and modification date
-;; - switch-buffer: buffer's major mode
-;; All without slowing down the UI.
-
-(use-package marginalia
-  :init
-  (marginalia-mode 1))
-
-;; (recentf, savehist and save-place moved to search.el.)
+(use-package marginalia)
 
 ;;; ============================================================
-;;; CONSULT — Enhanced search and navigation commands
+;;; CONSULT
 ;;; ============================================================
 
-;; Consult replaces built-in commands with preview-aware versions:
-;; - consult-buffer:    Switch buffer with live preview
-;; - consult-line:      Search current buffer (like Ctrl+F)
-;; - consult-ripgrep:   Content search (project, or ALL your repos)
-;; - consult-fd:        File NAME search across ALL your repos
-;; - consult-xref:      Shows definitions/references with live preview
-;; - consult-imenu:     Jump to function/class in current file
-;; The project/repo wrappers are in search.el.
+;; Definitions / references: one list with live preview instead of an
+;; *xref* buffer. (`consult-xref' is autoloaded; this does not load consult.)
+(setq xref-show-xrefs-function #'consult-xref
+      xref-show-definitions-function #'consult-xref)
 
 (use-package consult
-  :after vertico
   :bind
-  ;; Use consult for these standard commands
   ([remap switch-to-buffer] . consult-buffer)
   ([remap goto-line] . consult-goto-line)
   ([remap imenu] . consult-imenu)
-
   :custom
-  ;; Preview candidates as you navigate, but debounced.
-  ;; 'any with no debounce re-renders (opens/highlights) a file on every
-  ;; single cursor move through the candidate list — on a big consult-fd
-  ;; or consult-ripgrep result set this causes visible lag/flicker.
-  ;; Waiting 0.3s for you to stop moving before previewing fixes that.
+  ;; Debounced preview: without it every cursor move through a big result
+  ;; list opens a file.
   (consult-preview-key '(:debounce 0.3 any))
-  ;; (Removed the `consult-project-function' override: Consult's default
-  ;; already uses project.el, and the override additionally dropped the
-  ;; "prompt for a project" behavior.)
-
+  ;; fd: file NAMES only, dotfiles included. (Consult's default matches the
+  ;; absolute path, so "cpp" inside ~/cpp matched every file.)
+  (consult-fd-args
+   '((if (executable-find "fdfind" 'remote) "fdfind" "fd")
+     "--color=never --hidden --type f --exclude .git --exclude node_modules --exclude __pycache__ --exclude .venv"))
   :config
-  ;; Hide noisy internal buffers from `consult-buffer'.
-  ;; This does NOT kill or disable them.
-  ;; *scratch* remains visible.
+  ;; ripgrep: dotfiles too (.github, .env), never .git.
+  (when (and (stringp consult-ripgrep-args)
+             (not (string-search "--hidden" consult-ripgrep-args)))
+    (setq consult-ripgrep-args
+          (concat consult-ripgrep-args " --hidden --glob=!.git/")))
+
   (dolist (regexp '("\\`\\*Messages\\*\\'"
                     "\\`\\*Warnings\\*\\'"
                     "\\`\\*EGLOT.*\\*\\'"
                     "\\`\\*eglot.*\\*\\'"
                     "\\`\\*Flymake.*\\*\\'"
-                    "\\`\\*Echo Area.*\\*\\'"
-                    "\\`\\*Compile-Log\\*\\'"
-                    "\\` \\*Minibuf-.*\\*\\'"))
+                    "\\`\\*Compile-Log\\*\\'"))
     (add-to-list 'consult-buffer-filter regexp))
 
-  ;; Definitions / references: one Vertico list WITH live preview, instead
-  ;; of an *xref* buffer. This also fixes "xref can't open the target":
-  ;; in the *xref* buffer, evil's RET (evil-ret) shadowed xref's own RET.
-  ;; M-. / M-? / project-find-regexp / eglot references all go through
-  ;; these two variables.
-  (setq xref-show-xrefs-function #'consult-xref
-        xref-show-definitions-function #'consult-xref)
+  ;; SPC SPC shows: this workspace's buffers, then recent files.
+  ;; Narrow with:  t = this workspace's terminals   b = ALL buffers.
+  (defvar suhas/consult-source-workspace
+    `( :name     "Workspace"
+       :narrow   ?w
+       :category buffer
+       :face     consult-buffer
+       :history  buffer-name-history
+       :state    ,#'consult--buffer-state
+       :default  t
+       :items
+       ,(lambda ()
+          (consult--buffer-query
+           :sort 'visibility
+           :as #'buffer-name
+           :predicate (lambda (buf)
+                        (and (suhas/persp-buffer-p buf)
+                             (not (suhas/terminal-buffer-p buf)))))))
+    "Buffers of the current workspace, without its terminals.")
 
-  ;; Ripgrep: also search dotfiles (.github, .env, ...) but never .git.
-  (setq consult-ripgrep-args
-        (append (if (listp consult-ripgrep-args)
-                    consult-ripgrep-args
-                  (list consult-ripgrep-args))
-                (list "--hidden --glob=!.git/")))
+  (defvar suhas/consult-source-terminal
+    `( :name     "Terminal"
+       :narrow   ?t
+       :hidden   t
+       :category buffer
+       :face     consult-buffer
+       :history  buffer-name-history
+       :state    ,#'consult--buffer-state
+       :items
+       ,(lambda ()
+          (consult--buffer-query
+           :sort 'visibility
+           :as #'buffer-name
+           :predicate (lambda (buf)
+                        (and (suhas/persp-buffer-p buf)
+                             (suhas/terminal-buffer-p buf))))))
+    "Terminals of the current workspace; shown after narrowing with t.")
 
-  ;; fd (consult-fd): file NAMES only, files only, dotfiles included.
-  ;; Consult's default passes --full-path, and fd then matches your text
-  ;; against the ABSOLUTE path: typing "cpp" inside ~/cpp (or your user
-  ;; name, or the project folder's name) matched EVERY file.
-  (setq consult-fd-args
-        '((if (executable-find "fdfind" 'remote) "fdfind" "fd")
-          "--color=never --hidden --type f --exclude .git --exclude node_modules --exclude __pycache__ --exclude .venv")))
-
-
-;; Give Windows pipes more breathing room (default is small, causes exactly this error)
-(when (eq system-type 'windows-nt)
-  (setq w32-pipe-buffer-size (* 64 1024)))
-
-;; Windows only: slow down how eagerly consult restarts fd/rg while you
-;; type, so rapid typing doesn't pile up overlapping subprocesses. On
-;; Linux the defaults (0.2s / 0.5s) feel noticeably snappier.
-(when (eq system-type 'windows-nt)
-  (setq consult-async-input-debounce 0.4
-        consult-async-input-throttle 0.6))
-
-;; Buffer isolation with perspective package
-(with-eval-after-load 'consult
-  ;; Recent files are no longer hidden: SPC SPC now also finds files you
-  ;; opened before (that is how you reopen things without C-x C-f).
-  (with-eval-after-load 'perspective
-    (consult-customize consult-source-buffer :hidden t :default nil)
-    (consult-customize consult-source-recent-file :hidden t :default nil)
-    ;; Define our own version outright instead of patching perspective's
-    ;; internal plist — avoids racing perspective.el's own consult hook.
-    (defvar persp-consult-source
-      (list :name     "Perspective"
-            :narrow   ?s
-            :category 'buffer
-            :state    #'consult--buffer-state
-            :history  'buffer-name-history
-            :default  t
-            :items
-            (lambda ()
-              (consult--buffer-query
-               :sort 'visibility
-               :predicate (lambda (buf)
-                            (and (suhas/persp-buffer-p buf)
-                                 (not (suhas/terminal-buffer-p buf))))
-               :as #'buffer-name))))
-
-    (add-to-list 'consult-buffer-sources 'persp-consult-source)
-
-    (defvar consult-source-persp-terminal
-      `( :name     "Terminal"
-         :narrow   ?t
-         :hidden   t
-         :default  nil
-         :category buffer
-         :face     consult-buffer
-         :state    ,#'consult--buffer-state
-         :items
-         ,(lambda () (mapcar #'buffer-name (suhas/persp-terminal-buffers))))
-      "Perspective-scoped terminal buffers, hidden until narrowed with `t'.")
-
-    (add-to-list 'consult-buffer-sources 'consult-source-persp-terminal t)))
+  (consult-customize consult-source-buffer :hidden t :default nil)
+  (setq consult-buffer-sources
+        '(suhas/consult-source-workspace
+          consult-source-recent-file
+          suhas/consult-source-terminal
+          consult-source-buffer)))
 
 ;;; ============================================================
-;;; CORFU — In-buffer code completion popup
+;;; CORFU — in-buffer completion popup
 ;;; ============================================================
-
-;; Vertico/Consult handle minibuffer completion (commands, files, buffers).
-;; Corfu handles in-buffer completion (code suggestions, LSP completions).
-;; When you're typing code and eglot (LSP) suggests completions,
-;; Corfu shows them in a small popup next to your cursor.
 
 (use-package corfu
   :init
-  ;; No Corfu popup inside terminals: every keystroke there goes to the
-  ;; shell, and a dabbrev popup floating over the prompt only gets in the
-  ;; way of TAB / arrows / editing.
+  ;; Not in terminals: every key there belongs to the shell.
   (setq global-corfu-modes '((not ghostel-mode) t))
-  ;; Corfu in the minibuffer, but NOT in Vertico prompts (Vertico has its
-  ;; own list) and NOT in evil's `:' prompt: `evil-ex-command-completion-
-  ;; at-point' signals args-out-of-range there under Corfu's auto timer.
-  ;; (evil's own TAB completion for `:' commands keeps working.)
+  ;; In the minibuffer, but not on top of Vertico and not in Evil's `:'
+  ;; prompt (its completion function misbehaves under an auto popup).
   (setq global-corfu-minibuffer
         (lambda ()
           (not (or (bound-and-true-p vertico--input)
                    (bound-and-true-p evil-ex-current-buffer)))))
-  (global-corfu-mode 1)
   :custom
-  (corfu-auto t)           ; Show popup automatically while typing
-  (corfu-auto-delay 0.2)   ; Wait 200ms after you stop typing
-  (corfu-auto-prefix 2)    ; Only show popup after 2+ characters
-  (corfu-cycle t)          ; Tab wraps around candidate list
-  (corfu-quit-no-match t)  ; Hide popup if no matches
+  (corfu-auto t)
+  (corfu-auto-delay 0.2)
+  (corfu-auto-prefix 2)
+  (corfu-cycle t)
+  (corfu-quit-no-match t)
+  ;; Documentation beside the popup once you rest on a candidate.
+  (corfu-popupinfo-delay '(1.0 . 0.3))
   :bind
+  ;; RET always means newline; TAB accepts.
   (:map corfu-map
         ("<return>" . nil)
         ("RET" . nil)))
-;; NOTE: if you notice popup lag specifically while Eglot is connected to a
-;; slower LSP server (e.g. jdtls for Java), bump corfu-auto-prefix to 3 —
-;; every keystroke past the prefix count sends a completion request to the
-;; server. Don't change this preemptively; only if you actually feel it.
-
+;; If the popup lags with a slow server (jdtls), raise `corfu-auto-prefix'
+;; to 3 in local.el: every key past the prefix is a completion request.
 
 ;;; ============================================================
-;;; CAPE — Extra completion sources
+;;; CAPE — extra sources
 ;;; ============================================================
 
-;; Corfu shows LSP completions by default.
-;; Cape adds other sources: file paths, dictionary words, dabbrev (text in buffer).
-;; These all feed into Corfu's popup.
-
+;; File paths and words from open buffers, after whatever the mode
+;; itself offers (LSP). Both are autoloaded: cape loads on first use.
 (use-package cape
-  :after corfu
   :custom
-  ;; cape-dabbrev scans the whole buffer (and other buffers) on every
-  ;; keystroke after corfu-auto-delay. On large buffers this causes
-  ;; stutter for very short prefixes. Skip suggesting completions until
-  ;; you've typed at least 4 characters.
-  (cape-dabbrev-min-length 4)
-  :config
-  ;; Add file completion (M-: /path/to/fi<TAB> suggests files)
-  (add-to-list 'completion-at-point-functions #'cape-file t)
-  ;; Add dabbrev (completes words that appear elsewhere in the buffer)
-  (add-to-list 'completion-at-point-functions #'cape-dabbrev t))
+  ;; Scanning buffers for 2-letter prefixes stutters on big files.
+  (cape-dabbrev-min-length 4))
+(add-hook 'completion-at-point-functions #'cape-file t)
+(add-hook 'completion-at-point-functions #'cape-dabbrev t)
 
-;; Safety net: evil's ex command completion reads a text property one
-;; position before point and signals args-out-of-range on an empty or
-;; freshly seeded `:' line. A failed completion should simply offer
-;; nothing, not raise an error. (A NAMED function, so reloading the config
-;; does not stack a second copy of the advice.)
+;; Evil's `:' completion reads one position before point and signals
+;; args-out-of-range on an empty line. No completions is the right answer.
 (defun suhas/evil-ex-completion-safe (fn &rest args)
   "Call FN with ARGS; an `args-out-of-range' just means no completions."
   (condition-case nil (apply fn args)
