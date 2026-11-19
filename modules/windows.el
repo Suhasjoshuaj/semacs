@@ -30,6 +30,8 @@ Its bash is what the terminal and `compile' use.")
 nil = pass nothing. Auto-detected for a default MSYS2 UCRT64 install.")
 
 (setq suhas/font-family "Iosevka NF"
+      ;; Windows sends wheel clicks without pixel data: no pixel scrolling.
+      suhas/pixel-scroll nil
       ;; Windows Emacs already has the real PATH. Importing one from a
       ;; (Git Bash) login shell would replace it with Unix-style paths and
       ;; git, rg and fd would no longer be found.

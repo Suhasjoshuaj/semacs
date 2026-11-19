@@ -22,11 +22,18 @@
 (setq scroll-margin 2
       scroll-conservatively 101
       scroll-step 0
-      scroll-preserve-screen-position t)
+      scroll-preserve-screen-position t
+      ;; Mouse wheel: the same distance on every click, no acceleration.
+      mouse-wheel-progressive-speed nil
+      mouse-wheel-scroll-amount '(3 ((shift) . hscroll) ((meta))
+                                   ((control meta) . global-text-scale)
+                                   ((control) . text-scale))
+      ;; Touchpads scroll by pixel; ordinary wheel clicks are not animated.
+      pixel-scroll-precision-interpolate-mice nil)
 
 (defun suhas/ui-first-input ()
   "UI extras that can wait for the first keypress."
-  (when (display-graphic-p)
+  (when (and (display-graphic-p) suhas/pixel-scroll)
     (pixel-scroll-precision-mode 1))
   (display-time-mode 1))
 (add-hook 'suhas/first-input-hook #'suhas/ui-first-input)

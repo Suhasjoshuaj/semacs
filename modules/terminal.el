@@ -36,7 +36,8 @@
 ;;;   mouse drag           select = copy (y in normal state also copies)
 ;;;   C-c C-r              change where ESC goes in this terminal
 ;;;
-;;; Position, size, ESC routing and prompt are knobs in settings.el.
+;;; Position, size and ESC routing are knobs in settings.el. The prompt is
+;;; your shell's own (see README, Terminal, to colour it).
 
 (use-package ghostel
   :commands (ghostel ghostel-create ghostel-paste-string ghostel-status-next
@@ -366,7 +367,7 @@ program reported being blocked, done or failed."
     (ghostel-status-next)))
 
 ;;; ============================================================
-;;; ENVIRONMENT — prompt, and Emacs as the editor
+;;; ENVIRONMENT — Emacs as the editor
 ;;; ============================================================
 
 (defun suhas/terminal--editor ()
@@ -384,8 +385,7 @@ program reported being blocked, done or failed."
   "Set `ghostel-environment' before a terminal starts.
 Starts the Emacs server (once, under a name only this Emacs uses), so
 programs in the terminal open files in THIS Emacs: EDITOR and VISUAL
-point at emacsclient. Adds the short prompt when `suhas/terminal-prompt'
-is set."
+point at emacsclient."
   (require 'server)
   (let ((env nil)
         (editor (suhas/terminal--editor)))
@@ -402,13 +402,6 @@ is set."
                 (concat "EMACS_SOCKET_NAME="
                         (expand-file-name server-name server-socket-dir)))
               env)))
-    (when suhas/terminal-prompt
-      ;; Runs before every prompt (bash). The window title keeps the
-      ;; context (Git Bash: MINGW64:/c/...; else user@host:dir); ghostel
-      ;; shows it in the modeline.
-      (push (format "PROMPT_COMMAND=PS1='\\[\\e]0;${TITLEPREFIX:-\\u@\\h}:$PWD\\a\\]%s'"
-                    suhas/terminal-prompt)
-            env))
     (setq ghostel-environment env)))
 
 (defvar-local suhas/terminal--edit-origin nil

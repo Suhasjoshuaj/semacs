@@ -65,6 +65,9 @@
              diff-hl-revert-hunk)
   :custom
   (diff-hl-disable-on-remote t)
+  ;; Run git without blocking Emacs (needs Emacs 31): marks update after
+  ;; every pause in typing, on save, and on revert.
+  (diff-hl-update-async t)
   :config
   ;; Marks follow unsaved edits too.
   (diff-hl-flydiff-mode 1)

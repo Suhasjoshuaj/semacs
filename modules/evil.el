@@ -54,19 +54,22 @@
     (evil-define-key* state suhas/leader-mode-map (kbd "SPC") suhas/leader-map)
     (evil-make-intercept-map
      (evil-get-auxiliary-keymap suhas/leader-mode-map state t t) state))
-  (suhas/leader-mode 1)
+  (suhas/leader-mode 1))
 
-  (evil-collection-init '(ibuffer compile speedbar xref)))
-
-;; Complete Vim-style bindings for the modes listed in the init call above:
+;; Complete Vim-style bindings for the modes listed in the init call below:
 ;;   ibuffer   marking/deleting need it to work at all
 ;;   compile   moving around *compilation*
 ;;   xref      RET on a result
 ;;   speedbar  see below
+;; Set up right after Evil loads, and only once evil-collection is
+;; installed (on a first start Evil loads while it is being installed).
 (use-package evil-collection
-  :commands (evil-collection-init
-             evil-collection-define-key
-             evil-collection-set-readonly-bindings))
+  :after evil
+  :demand t
+  :commands (evil-collection-define-key
+             evil-collection-set-readonly-bindings)
+  :config
+  (evil-collection-init '(ibuffer compile speedbar xref)))
 
 (defun suhas/maybe-enable-evil ()
   "Turn Evil on at startup unless `suhas/vim-mode-enabled' is nil.

@@ -113,6 +113,10 @@ searched further, so monorepos are not split.")
 (defvar suhas/frame-padding 8
   "Pixels of empty space between the frame edge and the text (0 = none).")
 
+(defvar suhas/pixel-scroll t
+  "Pixel-smooth scrolling for touchpads (Linux X11/Wayland, macOS).
+Windows sends no pixel data, so windows.el turns it off.")
+
 (defvar suhas/vim-mode-enabled t
   "Start with Evil (Vim keys) on. Toggle at runtime with SPC c v or C-c v.")
 
@@ -128,11 +132,6 @@ searched further, so monorepos are not split.")
 
 (defvar suhas/terminal-width-fraction 0.40
   "Fraction of the frame width the terminal gets when it is on the right.")
-
-(defvar suhas/terminal-prompt "\\w \\$ "
-  "Prompt of bash in Emacs terminals, in PS1 syntax. Default: the path.
-user@machine and the environment go to the window title, which the
-modeline shows. nil = keep your shell's own prompt. (bash only.)")
 
 (defvar suhas/terminal-escape 'terminal
   "Where ESC goes while you type in a terminal.

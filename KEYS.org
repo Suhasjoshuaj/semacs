@@ -45,6 +45,8 @@ the =C-c= alternatives listed next to them.
 | C-c f        | suhas/find-file-everywhere        | file by name in all repos                             |
 | C-c g        | suhas/grep-project                | ripgrep in the project                                |
 | C-x l        | suhas/toggle-speedbar-window-focus| speedbar file tree                                    |
+| M-n          | next-line                         | line down, in every mode and state                    |
+| M-p          | previous-line                     | line up                                               |
 | M-1          | suhas/persp-switch-by-key         | workspace 1 (M-1 .. M-9)                              |
 | C-x +        | balance-windows                   | make windows the same size                            |
 | C-x -        | shrink-window                     | window shorter                                        |
@@ -54,6 +56,16 @@ the =C-c= alternatives listed next to them.
 
 =ESC= cancels the region, the minibuffer or a running command, and never
 closes windows; in Vim states it goes to normal state.
+
+=M-n= / =M-p= move lines everywhere (magit, terminals, compilation too)
+except in the minibuffer, where they are history, and while the completion
+popup is open, where they pick candidates. Modes listed in
+=suhas/m-np-keep-modes= keep their own =M-n= / =M-p=.
+
+Repeating (=repeat-mode=): after some commands the last key repeats them
+without the prefix: =C-x o o o= (windows), =C-x { { }= (width), =C-x u u=
+(undo), =C-x <right> <right>= (buffers), =M-g n n= (errors). Any other key
+ends it.
 
 =M-1= .. =M-9= switch workspaces, so a numeric argument is =C-1= .. =C-9=
 or =C-u 5=.
@@ -569,7 +581,8 @@ ending in =~= matches fuzzily, =!word= excludes, =^word= anchors at the
 start, =,abc= matches initials.
 
 =SPC SPC= (buffers): start with =t SPC= for this workspace's terminals, =b
-SPC= for all buffers, =r SPC= for recent files only. Search commands
+SPC= for all buffers, =r SPC= for recent files only, a single =SPC= for hidden
+buffers (*Messages*, *Warnings*, Flymake, Eglot ...). Search commands
 (=SPC s g=) take =#pattern#filter= to filter the results again.
 
 ** In-buffer popup (corfu)
@@ -627,7 +640,6 @@ RET is always a newline, never "accept".
 | u    | magit-unstage-files     | unstage                                     |
 | S    | magit-stage-modified    | stage all                                   |
 | U    | magit-unstage-all       | unstage all                                 |
-| k    | magit-delete-thing      | discard the change at point                 |
 | c    | magit-commit            | commit menu (c c: commit)                   |
 | P    | magit-push              | push menu (P p)                             |
 | F    | magit-pull              | pull menu (F p)                             |
@@ -639,7 +651,7 @@ RET is always a newline, never "accept".
 | r    | magit-rebase            | rebase menu (r i interactive)               |
 | m    | magit-merge             | merge menu                                  |
 | A    | magit-cherry-pick       | cherry-pick                                 |
-| X    | magit-reset             | reset menu                                  |
+| X    | magit-discard           | discard the change at point (asks first)    |
 | t    | magit-tag               | tag menu                                    |
 | g    | magit-refresh           | refresh                                     |
 | n    | magit-section-forward   | next section (p previous)                   |
@@ -648,8 +660,9 @@ RET is always a newline, never "accept".
 | ?    | magit-dispatch          | every command                               |
 | q    | magit-mode-bury-buffer  | close; window layout is restored            |
 
-In menus: ESC or C-g closes. Commit message: =C-c C-c= or =:wq= commits,
-=C-c C-k= or =:q= aborts. Forge (=SPC g f=, =@= in status): pull requests
+=k= does nothing in magit (so a Vim-habit =k= never discards); reset is
+=?= then =X=. In menus: ESC or C-g closes. Commit message: =C-c C-c= or =:wq= commits,
+=C-c C-k= or =:q= aborts. Forge (=SPC g f=, or =N= in magit): pull requests
 and issues.
 
 * Org and org-roam

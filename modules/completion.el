@@ -113,7 +113,8 @@ without network) is skipped and the built-in completion keeps working."
     (add-to-list 'consult-buffer-filter regexp))
 
   ;; SPC SPC shows: this workspace's buffers, then recent files.
-  ;; Narrow with:  t = this workspace's terminals   b = ALL buffers.
+  ;; Narrow with:  t = this workspace's terminals   b = ALL buffers
+  ;;               SPC = hidden buffers (*Messages*, *Warnings*, Eglot ...)
   (defvar suhas/consult-source-workspace
     `( :name     "Workspace"
        :narrow   ?w
@@ -155,7 +156,8 @@ without network) is skipped and the built-in completion keeps working."
         '(suhas/consult-source-workspace
           consult-source-recent-file
           suhas/consult-source-terminal
-          consult-source-buffer)))
+          consult-source-buffer
+          consult-source-hidden-buffer)))
 
 ;;; ============================================================
 ;;; CORFU — in-buffer completion popup
@@ -191,12 +193,19 @@ without network) is skipped and the built-in completion keeps working."
 ;;; CAPE — extra sources
 ;;; ============================================================
 
-;; File paths and words from open buffers, after whatever the mode
+;; File paths and words from the buffers on screen, after whatever the mode
 ;; itself offers (LSP). Both are autoloaded: cape loads on first use.
+(defun suhas/cape-visible-buffers ()
+  "Buffers shown in this frame's windows: where cape looks for words.
+Every buffer of the same mode (cape's default) took 0.6 s per lookup
+with 26 large files open."
+  (delete-dups (mapcar #'window-buffer (window-list nil 'no-minibuffer))))
+
 (use-package cape
   :custom
   ;; Scanning buffers for 2-letter prefixes stutters on big files.
-  (cape-dabbrev-min-length 4))
+  (cape-dabbrev-min-length 4)
+  (cape-dabbrev-buffer-function #'suhas/cape-visible-buffers))
 (add-hook 'completion-at-point-functions #'cape-file t)
 (add-hook 'completion-at-point-functions #'cape-dabbrev t)
 

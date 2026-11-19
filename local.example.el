@@ -30,8 +30,6 @@
 ;; Terminal.
 ;; (setq suhas/terminal-position 'right)
 ;; (setq suhas/terminal-escape 'auto)      ; ESC = Evil normal state at a shell prompt
-;; (setq suhas/terminal-prompt nil)         ; keep your shell's own prompt
-;; (setq suhas/terminal-prompt "\\u@\\h \\w \\$ ")  ; any bash PS1
 
 ;; Languages and servers.
 ;; (setq suhas/python-lsp-command '("basedpyright-langserver" "--stdio"))

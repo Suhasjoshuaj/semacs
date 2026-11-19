@@ -111,6 +111,7 @@ terminal, Vim mode off). Press it and wait: which-key lists what follows.
 |---|---|
 | `C-c ESC` / `C-x ESC` | Vim normal state from anywhere, also from a terminal's insert state |
 | `C-c o` / `C-x o` | next window |
+| `M-n` / `M-p` | line down / up everywhere (minibuffer: history; completion popup: candidates) |
 | `C-.` | terminal commands (see Terminal) |
 
 ### Files, buffers, search
@@ -162,10 +163,11 @@ existing window instead of splitting again.
 | `SPC g s` / `g l` / `g b` / `g r` | status / log / blame / all repos |
 | `]c` / `[c` | next / previous changed hunk |
 | `SPC g h` / `g x` | show hunk diff / revert hunk |
-| `SPC g f` | forge (PRs, issues; needs a token, see `modules/forge.el`) |
+| `SPC g f` / `N` | forge (PRs, issues; needs a token, see `modules/forge.el`). Loads on first use |
 
-Magit buffers use magit's own keys (`s` stage, `u` unstage, `c c` commit,
-`P` push, `F` pull, `q` quit and restore the layout, `?` for everything).
+Magit buffers use magit's own keys (`s` stage, `u` unstage, `X` discard,
+`c c` commit, `P` push, `F` pull, `q` quit and restore the layout, `?` for
+everything). `k` does nothing there, so a Vim-habit `k` never discards.
 In the commit message buffer `:wq` commits and `:q` aborts.
 
 ### Config
@@ -188,8 +190,13 @@ Org: `SPC o ...` (in `KEYS.org`).
 
 One panel, below or on the right. Every terminal buffer appears there, no
 matter how it is shown. Each workspace has its own terminals; a new one starts
-in the project root as `*term:PROJECT*`. The prompt is just the path; the
-environment (`MINGW64:/c/...`, or `user@host:dir`) is in the modeline.
+in the project root as `*term:PROJECT*`. The prompt is your shell's own.
+
+**Coloured prompt.** Git Bash's prompt is coloured already. On
+Debian/Ubuntu the stock `~/.bashrc` only colours it when `TERM` ends in
+`-256color`, and ghostel reports `xterm-ghostty`, so the prompt is as white
+as what you type. Uncomment one line in `~/.bashrc`:
+`force_color_prompt=yes`. (Any other shell: colour it in its own config.)
 
 `C-.` works in every state, inside terminals too (`SPC t` is the same map;
 terminal Emacs: `C-c SPC t`):
@@ -230,8 +237,7 @@ program opens with `$EDITOR` (`git commit` and the like) opens in this Emacs
 the same way.
 
 Prefer ESC to mean "Evil normal state" at a shell prompt? Set
-`(setq suhas/terminal-escape 'auto)` in `local.el`. Want your own prompt back?
-`(setq suhas/terminal-prompt nil)`.
+`(setq suhas/terminal-escape 'auto)` in `local.el`.
 
 A file opened while you stand in the panel appears in an editing window; the
 panel is never replaced. When a shell exits, its buffer and the panel close.
@@ -241,7 +247,9 @@ panel is never replaced. When a shell exits, its buffer and the panel close.
 Nothing is specific to one agent; it is the terminal plus a few editor habits:
 
 - Run the agent in a terminal (`C-. n`, name it, start the CLI).
-- Files it edits **reload in your buffers** by themselves.
+- Files it edits **reload in your buffers** by themselves: the ones on
+  screen at once, the rest as soon as you pause (or when you show them), so
+  an agent rewriting many files never makes typing stutter.
 - Review: fringe marks show what changed; `]c` / `[c` walk the hunks,
   `SPC g h` shows one, `SPC g x` reverts one, `SPC g s` is the whole picture.
 - Give it context: `C-. y` pastes the selected code or the `path:line`
@@ -345,4 +353,4 @@ against your snapshot.
 
 ---
 
-**Version 4.1** (November 2026) · Emacs 31.1+
+**Version 4.3** (November 2026) · Emacs 31.1+

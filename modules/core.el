@@ -200,6 +200,77 @@ switched on here instead of during startup.")
       auto-revert-avoid-polling t)
 (add-hook 'suhas/first-input-hook #'global-auto-revert-mode)
 
+;; Buffers you can SEE are reverted at once; hidden ones when Emacs has
+;; been idle for a second, or when they are shown. A revert is not free:
+;; the language server gets the whole file again and re-analyses it. An
+;; agent rewriting 25 open files kept Emacs busy for over half a second in
+;; small chunks while you typed; now that work waits for a pause.
+;;
+;; The idle sweep also catches buffers auto-revert itself gives up on: it
+;; stops when you type and, without polling, only resumes on the next file
+;; event, which can leave buffers silently out of date.
+
+(defvar suhas--revert-now nil
+  "Non-nil while the idle sweep reverts: revert even if hidden.")
+
+(defvar suhas--revert-soon-timer nil
+  "One-shot idle timer: a sweep one second after a hidden file changed.")
+
+(defun suhas/--revert-visible-only (fn &rest args)
+  "Around `auto-revert-handler': leave hidden file buffers to the idle sweep."
+  (if (or suhas--revert-now
+          (not buffer-file-name)
+          (get-buffer-window (current-buffer) t))
+      (apply fn args)
+    ;; Files often change while you are already idle (an agent at work);
+    ;; a repeating idle timer would wait for your next keypress.
+    (unless (timerp suhas--revert-soon-timer)
+      (setq suhas--revert-soon-timer
+            (run-with-idle-timer (time-add (or (current-idle-time) 0) 1) nil
+                                 #'suhas/--revert-sweep)))))
+
+(defun suhas/--revert-stale-p (buf)
+  "Non-nil if BUF is an unmodified local file buffer whose file changed."
+  (and (buffer-local-value 'auto-revert--global-mode buf)
+       (not (buffer-modified-p buf))
+       (let ((file (buffer-file-name buf)))
+         (and file
+              (not (file-remote-p file))
+              (file-exists-p file)
+              (not (verify-visited-file-modtime buf))))))
+
+(defun suhas/--revert-sweep ()
+  "Revert stale file buffers while Emacs is idle; stop as soon as you type."
+  (setq suhas--revert-soon-timer nil)
+  (let ((suhas--revert-now t))
+    (dolist (buf (buffer-list))
+      (when (and (not (input-pending-p))
+                 (suhas/--revert-stale-p buf))
+        (with-current-buffer buf
+          (auto-revert-handler))))))
+
+(defun suhas/--revert-on-display (frame)
+  "Revert stale buffers the moment they are shown in FRAME."
+  (dolist (win (window-list frame 'no-minibuffer))
+    (let ((buf (window-buffer win)))
+      (when (suhas/--revert-stale-p buf)
+        (let ((suhas--revert-now t))
+          (with-current-buffer buf
+            (auto-revert-handler)))))))
+
+(defvar suhas--revert-sweep-timer nil
+  "Idle timer for `suhas/--revert-sweep' (kept so a reload replaces it).")
+
+(defun suhas/--revert-setup ()
+  "Install the deferred-revert behaviour (with `global-auto-revert-mode')."
+  (advice-add 'auto-revert-handler :around #'suhas/--revert-visible-only)
+  (add-hook 'window-buffer-change-functions #'suhas/--revert-on-display)
+  (when (timerp suhas--revert-sweep-timer)
+    (cancel-timer suhas--revert-sweep-timer))
+  (setq suhas--revert-sweep-timer
+        (run-with-idle-timer 1 t #'suhas/--revert-sweep)))
+(add-hook 'suhas/first-input-hook #'suhas/--revert-setup)
+
 ;;; ============================================================
 ;;; HEAVY BUFFERS — stay responsive
 ;;; ============================================================
@@ -257,7 +328,7 @@ switched on here instead of during startup.")
               tab-width 4)
 
 (electric-pair-mode 1)
-(repeat-mode 1)
+(add-hook 'suhas/first-input-hook #'repeat-mode)
 
 ;; M-x compile: follow the output, jump to the first error, render colours.
 (setq compilation-ask-about-save nil
